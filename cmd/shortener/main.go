@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 )
@@ -36,7 +37,7 @@ func main() {
 	mux.HandleFunc(`/`, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
-			shortenURL(w, r)
+			createShortenURL(w, r)
 		case http.MethodGet:
 			getShortenURL(w, r)
 		default:
@@ -52,7 +53,7 @@ func main() {
 
 func getShortenURL(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == `/` {
-		http.Error(w, "Bad request",  http.StatusBadRequest)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 	pathSplitted := strings.Split(r.URL.Path, `/`)
@@ -69,12 +70,12 @@ func getShortenURL(w http.ResponseWriter, r *http.Request) {
 	http.RedirectHandler(originalURL, http.StatusTemporaryRedirect).ServeHTTP(w, r)
 }
 
-func shortenURL(w http.ResponseWriter, r *http.Request) {
+func createShortenURL(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
-	if r.Header["Content-Type"][0] != "text/plain" {
+	if !hasContentType(r, "text/plain") {
 		http.Error(w, `Only "text/plain" accepted`, http.StatusBadRequest)
 		return
 	}
@@ -108,4 +109,22 @@ func randomHex(n int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(bytes), nil
+}
+
+func hasContentType(r *http.Request, mimetype string) bool {
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "" {
+		return mimetype == "application/octet-stream"
+	}
+
+	for _, v := range strings.Split(contentType, ",") {
+		t, _, err := mime.ParseMediaType(v)
+		if err != nil {
+			break
+		}
+		if t == mimetype {
+			return true
+		}
+	}
+	return false
 }
