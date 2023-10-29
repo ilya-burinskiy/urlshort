@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 type Storage map[string]string
@@ -21,22 +22,56 @@ func (s Storage) put(key, value string) {
 	s[key] = value
 }
 
+func (s Storage) keyByValue(value string) (string, bool) {
+	for k, v := range s {
+		if v == value {
+			return k, true
+		}
+	}
+	return "", false
+}
+
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc(`/`, shortenURL)
+	mux.HandleFunc(`/`, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			shortenURL(w, r)
+		case http.MethodGet:
+			getShortenURL(w, r)
+		default:
+			http.Error(w, "Only POST GET accepted", http.StatusBadRequest)
+			w.WriteHeader(http.StatusOK)
+		}
+	})
 
 	if err := http.ListenAndServe(`:8080`, mux); err != nil {
 		panic(err)
 	}
 }
 
-func shortenURL(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+func getShortenURL(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == `/` {
+		http.Error(w, "Bad request",  http.StatusBadRequest)
+		return
+	}
+	pathSplitted := strings.Split(r.URL.Path, `/`)
+	if len(pathSplitted) != 2 {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST accepted", http.StatusBadRequest)
+	shortenedPath := pathSplitted[len(pathSplitted)-1]
+	originalURL, ok := storage.keyByValue(shortenedPath)
+	if !ok {
+		http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
+		return
+	}
+	http.RedirectHandler(originalURL, http.StatusTemporaryRedirect).ServeHTTP(w, r)
+}
+
+func shortenURL(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 	if r.Header["Content-Type"][0] != "text/plain" {
