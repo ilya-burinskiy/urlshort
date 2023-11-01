@@ -46,14 +46,18 @@ func ShortenURLViewHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		CreateShortenedURLHandler(w, r)
 	case http.MethodGet:
-		getShortenURL(w, r)
+		GetShortenedURLHandler(w, r)
 	default:
 		http.Error(w, "Only POST GET accepted", http.StatusBadRequest)
 		w.WriteHeader(http.StatusOK)
 	}
 }
 
-func getShortenURL(w http.ResponseWriter, r *http.Request) {
+func GetShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET accepted", http.StatusBadRequest)
+		return
+	}
 	if r.URL.Path == `/` {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
