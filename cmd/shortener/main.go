@@ -34,20 +34,22 @@ func (s Storage) keyByValue(value string) (string, bool) {
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc(`/`, func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			createShortenURL(w, r)
-		case http.MethodGet:
-			getShortenURL(w, r)
-		default:
-			http.Error(w, "Only POST GET accepted", http.StatusBadRequest)
-			w.WriteHeader(http.StatusOK)
-		}
-	})
+	mux.HandleFunc(`/`, ShortenURLViewHandler)
 
 	if err := http.ListenAndServe(`:8080`, mux); err != nil {
 		panic(err)
+	}
+}
+
+func ShortenURLViewHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		createShortenURL(w, r)
+	case http.MethodGet:
+		getShortenURL(w, r)
+	default:
+		http.Error(w, "Only POST GET accepted", http.StatusBadRequest)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
