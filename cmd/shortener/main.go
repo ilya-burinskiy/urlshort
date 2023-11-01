@@ -44,7 +44,7 @@ func main() {
 func ShortenURLViewHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		createShortenURL(w, r)
+		CreateShortenedURLHandler(w, r)
 	case http.MethodGet:
 		getShortenURL(w, r)
 	default:
@@ -72,7 +72,11 @@ func getShortenURL(w http.ResponseWriter, r *http.Request) {
 	http.RedirectHandler(originalURL, http.StatusTemporaryRedirect).ServeHTTP(w, r)
 }
 
-func createShortenURL(w http.ResponseWriter, r *http.Request) {
+func CreateShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST accepted", http.StatusBadRequest)
+		return
+	}
 	if r.URL.Path != "/" {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
