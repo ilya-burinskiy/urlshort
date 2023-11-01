@@ -32,6 +32,15 @@ func (s Storage) keyByValue(value string) (string, bool) {
 	return "", false
 }
 
+// NOTE: to mock randomHex in tests
+var randomHexImpl = func(n int) (string, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc(`/`, ShortenURLViewHandler)
@@ -114,11 +123,7 @@ func CreateShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func randomHex(n int) (string, error) {
-	bytes := make([]byte, n)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
+	return randomHexImpl(n)
 }
 
 func hasContentType(r *http.Request, mimetype string) bool {
