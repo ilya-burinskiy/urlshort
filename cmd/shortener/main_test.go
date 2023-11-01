@@ -19,6 +19,7 @@ type want struct {
 
 func TestCreateShortenedURLHandler(t *testing.T) {
 	oldRandomHexImpl := randomHexImpl
+	defer func() { randomHexImpl = oldRandomHexImpl }()
 	successfulRandomHexImpl := func(n int) (string, error) { return "123", nil }
 	unsuccessfulRandomHexImpl := func(n int) (string, error) { return "", errors.New("error") }
 
@@ -27,6 +28,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		httpMethod    string
 		path          string
 		contentType   string
+		storage       Storage
 		randomHexImpl func(int) (string, error)
 		want          want
 	}{
@@ -35,6 +37,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			httpMethod:    http.MethodPost,
 			path:          "/",
 			contentType:   "text/plain",
+			storage:       make(Storage),
 			randomHexImpl: successfulRandomHexImpl,
 			want: want{
 				code:        http.StatusCreated,
@@ -47,6 +50,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			httpMethod:    http.MethodGet,
 			path:          "/",
 			contentType:   "text/plain",
+			storage:       make(Storage),
 			randomHexImpl: successfulRandomHexImpl,
 			want: want{
 				code:        http.StatusBadRequest,
@@ -59,6 +63,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			httpMethod:    http.MethodPost,
 			path:          "/abc",
 			contentType:   "text/plain",
+			storage:       make(Storage),
 			randomHexImpl: successfulRandomHexImpl,
 			want: want{
 				code:        http.StatusBadRequest,
@@ -71,6 +76,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			httpMethod:    http.MethodPost,
 			path:          "/",
 			contentType:   "application/json",
+			storage:       make(Storage),
 			randomHexImpl: successfulRandomHexImpl,
 			want: want{
 				code:        http.StatusBadRequest,
@@ -83,6 +89,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			httpMethod:    http.MethodPost,
 			path:          "/",
 			contentType:   "text/plain",
+			storage:       make(Storage),
 			randomHexImpl: unsuccessfulRandomHexImpl,
 			want: want{
 				code:        http.StatusUnprocessableEntity,
@@ -94,8 +101,6 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		randomHexImpl = tc.randomHexImpl
-		storage = make(Storage)
-
 		request := httptest.NewRequest(
 			tc.httpMethod,
 			tc.path,
@@ -104,7 +109,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		request.Header.Set("Content-Type", tc.contentType)
 		recorder := httptest.NewRecorder()
 
-		CreateShortenedURLHandler(recorder, request)
+		CreateShortenedURLHandler(tc.storage)(recorder, request)
 		response := recorder.Result()
 		resBody, err := io.ReadAll(response.Body)
 		defer response.Body.Close()
@@ -114,5 +119,4 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		assert.Equal(t, tc.want.response, string(resBody))
 		assert.Equal(t, tc.want.contentType, response.Header.Get("Content-Type"))
 	}
-	randomHexImpl = oldRandomHexImpl
 }

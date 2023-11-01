@@ -12,8 +12,6 @@ import (
 
 type Storage map[string]string
 
-var storage Storage = make(Storage)
-
 func (s Storage) get(key string) (string, bool) {
 	value, ok := s[key]
 	return value, ok
@@ -42,84 +40,91 @@ var randomHexImpl = func(n int) (string, error) {
 }
 
 func main() {
+	storage := make(Storage)
 	mux := http.NewServeMux()
-	mux.HandleFunc(`/`, ShortenURLViewHandler)
+	mux.HandleFunc(`/`, ShortenURLViewHandler(storage))
 
 	if err := http.ListenAndServe(`:8080`, mux); err != nil {
 		panic(err)
 	}
 }
 
-func ShortenURLViewHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		CreateShortenedURLHandler(w, r)
-	case http.MethodGet:
-		GetShortenedURLHandler(w, r)
-	default:
-		http.Error(w, "Only POST GET accepted", http.StatusBadRequest)
-		w.WriteHeader(http.StatusOK)
+func ShortenURLViewHandler(storage Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			CreateShortenedURLHandler(storage)(w, r)
+		case http.MethodGet:
+			GetShortenedURLHandler(storage)(w, r)
+		default:
+			http.Error(w, "Only POST GET accepted", http.StatusBadRequest)
+			w.WriteHeader(http.StatusOK)
+		}
 	}
 }
 
-func GetShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Only GET accepted", http.StatusBadRequest)
-		return
+func GetShortenedURLHandler(storage Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Only GET accepted", http.StatusBadRequest)
+			return
+		}
+		if r.URL.Path == `/` {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+		pathSplitted := strings.Split(r.URL.Path, `/`)
+		if len(pathSplitted) != 2 {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+		shortenedPath := pathSplitted[len(pathSplitted)-1]
+		originalURL, ok := storage.keyByValue(shortenedPath)
+		if !ok {
+			http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
+			return
+		}
+		http.RedirectHandler(originalURL, http.StatusTemporaryRedirect).ServeHTTP(w, r)
 	}
-	if r.URL.Path == `/` {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-	pathSplitted := strings.Split(r.URL.Path, `/`)
-	if len(pathSplitted) != 2 {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-	shortenedPath := pathSplitted[len(pathSplitted)-1]
-	originalURL, ok := storage.keyByValue(shortenedPath)
-	if !ok {
-		http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
-		return
-	}
-	http.RedirectHandler(originalURL, http.StatusTemporaryRedirect).ServeHTTP(w, r)
 }
 
-func CreateShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST accepted", http.StatusBadRequest)
-		return
-	}
-	if r.URL.Path != "/" {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-	if !hasContentType(r, "text/plain") {
-		http.Error(w, `Only "text/plain" accepted`, http.StatusBadRequest)
-		return
-	}
+func CreateShortenedURLHandler(storage Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Only POST accepted", http.StatusBadRequest)
+			return
+		}
+		if r.URL.Path != "/" {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+		if !hasContentType(r, "text/plain") {
+			http.Error(w, `Only "text/plain" accepted`, http.StatusBadRequest)
+			return
+		}
 
-	bytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		return
-	}
-	url := string(bytes)
-
-	shortenedURL, ok := storage.get(url)
-	if !ok {
-		path, err := randomHex(8)
+		bytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		shortenedURL = fmt.Sprintf("http://localhost:8080/%v", path)
-		storage.put(url, path)
-	}
+		url := string(bytes)
 
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(shortenedURL))
+		shortenedURL, ok := storage.get(url)
+		if !ok {
+			path, err := randomHex(8)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			shortenedURL = fmt.Sprintf("http://localhost:8080/%v", path)
+			storage.put(url, path)
+		}
+
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(shortenedURL))
+	}
 }
 
 func randomHex(n int) (string, error) {
