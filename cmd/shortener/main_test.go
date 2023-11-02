@@ -116,6 +116,9 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 }
 
 func TestGetShortenedURLHandler(t *testing.T) {
+	testServer := httptest.NewServer(ShortenURLRouter())
+	defer testServer.Close()
+
 	testCases := []struct {
 		name        string
 		httpMethod  string
@@ -125,7 +128,7 @@ func TestGetShortenedURLHandler(t *testing.T) {
 		want        want
 	}{
 		{
-			name:        "responses with ok status",
+			name:        "responses with temporary redirect status",
 			httpMethod:  http.MethodGet,
 			path:        "/123",
 			contentType: "text/plain",
@@ -137,27 +140,15 @@ func TestGetShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:        "responses with bad request if method is not GET",
+			name:        "responses with method not allowed if method is not GET",
 			httpMethod:  http.MethodPost,
 			path:        "/123",
 			contentType: "text/plain",
 			storage:     Storage{"http://example.com": "123"},
 			want: want{
-				code:        http.StatusBadRequest,
-				response:    "Only GET accepted\n",
-				contentType: "text/plain; charset=utf-8",
-			},
-		},
-		{
-			name:        `responses with bad request if path not "/{id}"`,
-			httpMethod:  http.MethodGet,
-			path:        "/",
-			contentType: "text/plain",
-			storage:     Storage{"http://examample.com": "123"},
-			want: want{
-				code:        http.StatusBadRequest,
-				response:    "Bad request\n",
-				contentType: "text/plain; charset=utf-8",
+				code:        http.StatusMethodNotAllowed,
+				response:    "",
+				contentType: "",
 			},
 		},
 		{
@@ -177,16 +168,17 @@ func TestGetShortenedURLHandler(t *testing.T) {
 	for _, tc := range testCases {
 		storage = tc.storage
 
-		request := httptest.NewRequest(
+		request, err := http.NewRequest(
 			tc.httpMethod,
-			tc.path,
-			strings.NewReader("http://example.com"),
+			testServer.URL+tc.path,
+			nil,
 		)
+		require.NoError(t, err)
 		request.Header.Set("Content-Type", tc.contentType)
-		recorder := httptest.NewRecorder()
 
-		GetShortenedURLHandler(recorder, request)
-		response := recorder.Result()
+		transport := http.Transport{}
+		response, err := transport.RoundTrip(request)
+		require.NoError(t, err)
 		resBody, err := io.ReadAll(response.Body)
 		defer response.Body.Close()
 

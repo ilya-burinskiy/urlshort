@@ -8,7 +8,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"io"
 	"net/http"
-	"strings"
 )
 
 type Storage map[string]string
@@ -65,20 +64,7 @@ func ShortenURLRouter() chi.Router {
 }
 
 func GetShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Only GET accepted", http.StatusBadRequest)
-		return
-	}
-	if r.URL.Path == `/` {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-	pathSplitted := strings.Split(r.URL.Path, `/`)
-	if len(pathSplitted) != 2 {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-	shortenedPath := pathSplitted[len(pathSplitted)-1]
+	shortenedPath := chi.URLParam(r, "id")
 	originalURL, ok := storage.KeyByValue(shortenedPath)
 	if !ok {
 		http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
