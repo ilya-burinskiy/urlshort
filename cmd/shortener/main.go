@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"io"
-	"mime"
 	"net/http"
 	"strings"
 )
@@ -56,6 +56,8 @@ func main() {
 
 func ShortenURLRouter() chi.Router {
 	router := chi.NewRouter()
+	router.Use(middleware.AllowContentType("text/plain"))
+
 	router.Post("/", CreateShortenedURLHandler)
 	router.Get("/{id}", GetShortenedURLHandler)
 
@@ -86,19 +88,6 @@ func GetShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST accepted", http.StatusBadRequest)
-		return
-	}
-	if r.URL.Path != "/" {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-	if !hasContentType(r, "text/plain") {
-		http.Error(w, `Only "text/plain" accepted`, http.StatusBadRequest)
-		return
-	}
-
 	bytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
@@ -117,29 +106,10 @@ func CreateShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
 		storage.Put(url, path)
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortenedURL))
 }
 
 func randomHex(n int) (string, error) {
 	return randomHexImpl(n)
-}
-
-func hasContentType(r *http.Request, mimetype string) bool {
-	contentType := r.Header.Get("Content-Type")
-	if contentType == "" {
-		return mimetype == "application/octet-stream"
-	}
-
-	for _, v := range strings.Split(contentType, ",") {
-		t, _, err := mime.ParseMediaType(v)
-		if err != nil {
-			break
-		}
-		if t == mimetype {
-			return true
-		}
-	}
-	return false
 }

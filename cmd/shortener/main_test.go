@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type want struct {
@@ -23,6 +24,9 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 	defer func() { randomHexImpl = oldRandomHexImpl }()
 	successfulRandomHexImpl := func(n int) (string, error) { return "123", nil }
 	unsuccessfulRandomHexImpl := func(n int) (string, error) { return "", errors.New("error") }
+
+	testServer := httptest.NewServer(ShortenURLRouter())
+	defer testServer.Close()
 
 	testCases := []struct {
 		name          string
@@ -43,33 +47,20 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			want: want{
 				code:        http.StatusCreated,
 				response:    "http://localhost:8080/123",
-				contentType: "text/plain",
+				contentType: "text/plain; charset=utf-8",
 			},
 		},
 		{
-			name:          "responses with bad request if method is not POST",
+			name:          "responses with method not allowed if method is not POST",
 			httpMethod:    http.MethodGet,
 			path:          "/",
 			contentType:   "text/plain",
 			storage:       make(Storage),
 			randomHexImpl: successfulRandomHexImpl,
 			want: want{
-				code:        http.StatusBadRequest,
-				response:    "Only POST accepted\n",
-				contentType: "text/plain; charset=utf-8",
-			},
-		},
-		{
-			name:          `responses with bad request if path does not equal "/"`,
-			httpMethod:    http.MethodPost,
-			path:          "/abc",
-			contentType:   "text/plain",
-			storage:       make(Storage),
-			randomHexImpl: successfulRandomHexImpl,
-			want: want{
-				code:        http.StatusBadRequest,
-				response:    "Bad request\n",
-				contentType: "text/plain; charset=utf-8",
+				code:        http.StatusMethodNotAllowed,
+				response:    "",
+				contentType: "",
 			},
 		},
 		{
@@ -80,9 +71,9 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			storage:       make(Storage),
 			randomHexImpl: successfulRandomHexImpl,
 			want: want{
-				code:        http.StatusBadRequest,
-				response:    "Only \"text/plain\" accepted\n",
-				contentType: "text/plain; charset=utf-8",
+				code:        http.StatusUnsupportedMediaType,
+				response:    "",
+				contentType: "",
 			},
 		},
 		{
@@ -104,16 +95,16 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		randomHexImpl = tc.randomHexImpl
 		storage = tc.storage
 
-		request := httptest.NewRequest(
+		request, err := http.NewRequest(
 			tc.httpMethod,
-			tc.path,
+			testServer.URL+tc.path,
 			strings.NewReader("http://example.com"),
 		)
+		require.NoError(t, err)
 		request.Header.Set("Content-Type", tc.contentType)
-		recorder := httptest.NewRecorder()
 
-		CreateShortenedURLHandler(recorder, request)
-		response := recorder.Result()
+		response, err := testServer.Client().Do(request)
+		require.NoError(t, err)
 		resBody, err := io.ReadAll(response.Body)
 		defer response.Body.Close()
 
