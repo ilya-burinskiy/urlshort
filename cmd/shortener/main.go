@@ -13,22 +13,28 @@ import (
 
 type Storage map[string]string
 
-func (s Storage) get(key string) (string, bool) {
+func (s Storage) Get(key string) (string, bool) {
 	value, ok := s[key]
 	return value, ok
 }
 
-func (s Storage) put(key, value string) {
+func (s Storage) Put(key, value string) {
 	s[key] = value
 }
 
-func (s Storage) keyByValue(value string) (string, bool) {
+func (s Storage) KeyByValue(value string) (string, bool) {
 	for k, v := range s {
 		if v == value {
 			return k, true
 		}
 	}
 	return "", false
+}
+
+func (s Storage) Clear() {
+	for k := range s {
+		delete(s, k)
+	}
 }
 
 // NOTE: to mock randomHex in tests
@@ -71,7 +77,7 @@ func GetShortenedURLHandler(storage Storage) http.HandlerFunc {
 			return
 		}
 		shortenedPath := pathSplitted[len(pathSplitted)-1]
-		originalURL, ok := storage.keyByValue(shortenedPath)
+		originalURL, ok := storage.KeyByValue(shortenedPath)
 		if !ok {
 			http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
 			return
@@ -102,7 +108,7 @@ func CreateShortenedURLHandler(storage Storage) http.HandlerFunc {
 		}
 		url := string(bytes)
 
-		shortenedURL, ok := storage.get(url)
+		shortenedURL, ok := storage.Get(url)
 		if !ok {
 			path, err := randomHex(8)
 			if err != nil {
@@ -110,7 +116,7 @@ func CreateShortenedURLHandler(storage Storage) http.HandlerFunc {
 				return
 			}
 			shortenedURL = fmt.Sprintf("http://localhost:8080/%v", path)
-			storage.put(url, path)
+			storage.Put(url, path)
 		}
 
 		w.Header().Set("Content-Type", "text/plain")
