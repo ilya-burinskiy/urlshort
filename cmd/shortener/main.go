@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	"io"
 	"mime"
 	"net/http"
@@ -40,27 +41,18 @@ var randomHexImpl = func(n int) (string, error) {
 }
 
 func main() {
-	storage := make(Storage)
-	mux := http.NewServeMux()
-	mux.HandleFunc(`/`, ShortenURLViewHandler(storage))
-
-	if err := http.ListenAndServe(`:8080`, mux); err != nil {
+	if err := http.ListenAndServe(`:8080`, ShortenURLRouter()); err != nil {
 		panic(err)
 	}
 }
 
-func ShortenURLViewHandler(storage Storage) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			CreateShortenedURLHandler(storage)(w, r)
-		case http.MethodGet:
-			GetShortenedURLHandler(storage)(w, r)
-		default:
-			http.Error(w, "Only POST GET accepted", http.StatusBadRequest)
-			w.WriteHeader(http.StatusOK)
-		}
-	}
+func ShortenURLRouter() chi.Router {
+	router := chi.NewRouter()
+	storage := make(Storage)
+	router.Post("/", CreateShortenedURLHandler(storage))
+	router.Get("/{id}", GetShortenedURLHandler(storage))
+
+	return router
 }
 
 func GetShortenedURLHandler(storage Storage) http.HandlerFunc {
