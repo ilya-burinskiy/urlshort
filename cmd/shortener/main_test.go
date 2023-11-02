@@ -102,6 +102,8 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		randomHexImpl = tc.randomHexImpl
+		storage = tc.storage
+
 		request := httptest.NewRequest(
 			tc.httpMethod,
 			tc.path,
@@ -110,7 +112,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		request.Header.Set("Content-Type", tc.contentType)
 		recorder := httptest.NewRecorder()
 
-		CreateShortenedURLHandler(tc.storage)(recorder, request)
+		CreateShortenedURLHandler(recorder, request)
 		response := recorder.Result()
 		resBody, err := io.ReadAll(response.Body)
 		defer response.Body.Close()
@@ -182,6 +184,8 @@ func TestGetShortenedURLHandler(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		storage = tc.storage
+
 		request := httptest.NewRequest(
 			tc.httpMethod,
 			tc.path,
@@ -190,7 +194,7 @@ func TestGetShortenedURLHandler(t *testing.T) {
 		request.Header.Set("Content-Type", tc.contentType)
 		recorder := httptest.NewRecorder()
 
-		GetShortenedURLHandler(tc.storage)(recorder, request)
+		GetShortenedURLHandler(recorder, request)
 		response := recorder.Result()
 		resBody, err := io.ReadAll(response.Body)
 		defer response.Body.Close()

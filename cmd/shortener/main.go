@@ -46,6 +46,8 @@ var randomHexImpl = func(n int) (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+var storage = make(Storage)
+
 func main() {
 	if err := http.ListenAndServe(`:8080`, ShortenURLRouter()); err != nil {
 		panic(err)
@@ -54,75 +56,70 @@ func main() {
 
 func ShortenURLRouter() chi.Router {
 	router := chi.NewRouter()
-	storage := make(Storage)
-	router.Post("/", CreateShortenedURLHandler(storage))
-	router.Get("/{id}", GetShortenedURLHandler(storage))
+	router.Post("/", CreateShortenedURLHandler)
+	router.Get("/{id}", GetShortenedURLHandler)
 
 	return router
 }
 
-func GetShortenedURLHandler(storage Storage) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Only GET accepted", http.StatusBadRequest)
-			return
-		}
-		if r.URL.Path == `/` {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-		pathSplitted := strings.Split(r.URL.Path, `/`)
-		if len(pathSplitted) != 2 {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-		shortenedPath := pathSplitted[len(pathSplitted)-1]
-		originalURL, ok := storage.KeyByValue(shortenedPath)
-		if !ok {
-			http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
-			return
-		}
-		http.RedirectHandler(originalURL, http.StatusTemporaryRedirect).ServeHTTP(w, r)
+func GetShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET accepted", http.StatusBadRequest)
+		return
 	}
+	if r.URL.Path == `/` {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	pathSplitted := strings.Split(r.URL.Path, `/`)
+	if len(pathSplitted) != 2 {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	shortenedPath := pathSplitted[len(pathSplitted)-1]
+	originalURL, ok := storage.KeyByValue(shortenedPath)
+	if !ok {
+		http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
+		return
+	}
+	http.RedirectHandler(originalURL, http.StatusTemporaryRedirect).ServeHTTP(w, r)
 }
 
-func CreateShortenedURLHandler(storage Storage) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Only POST accepted", http.StatusBadRequest)
-			return
-		}
-		if r.URL.Path != "/" {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-		if !hasContentType(r, "text/plain") {
-			http.Error(w, `Only "text/plain" accepted`, http.StatusBadRequest)
-			return
-		}
+func CreateShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST accepted", http.StatusBadRequest)
+		return
+	}
+	if r.URL.Path != "/" {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	if !hasContentType(r, "text/plain") {
+		http.Error(w, `Only "text/plain" accepted`, http.StatusBadRequest)
+		return
+	}
 
-		bytes, err := io.ReadAll(r.Body)
+	bytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	url := string(bytes)
+
+	shortenedURL, ok := storage.Get(url)
+	if !ok {
+		path, err := randomHex(8)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		url := string(bytes)
-
-		shortenedURL, ok := storage.Get(url)
-		if !ok {
-			path, err := randomHex(8)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-				return
-			}
-			shortenedURL = fmt.Sprintf("http://localhost:8080/%v", path)
-			storage.Put(url, path)
-		}
-
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(shortenedURL))
+		shortenedURL = fmt.Sprintf("http://localhost:8080/%v", path)
+		storage.Put(url, path)
 	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(shortenedURL))
 }
 
 func randomHex(n int) (string, error) {
