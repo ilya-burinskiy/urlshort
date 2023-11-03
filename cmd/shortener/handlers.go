@@ -38,19 +38,18 @@ func CreateShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	url := string(bytes)
 
-	shortenedURL, ok := storage.Get(url)
+	shortenedURLPath, ok := storage.Get(url)
 	if !ok {
-		path, err := randomHex(8)
+		shortenedURLPath, err = randomHex(8)
+		storage.Put(url, shortenedURLPath)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		shortenedURL = fmt.Sprintf("http://localhost:8080/%v", path)
-		storage.Put(url, path)
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(shortenedURL))
+	w.Write([]byte("http://localhost:8080/" + shortenedURLPath))
 }
 
 func randomHex(n int) (string, error) {
