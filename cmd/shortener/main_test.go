@@ -20,6 +20,9 @@ type want struct {
 }
 
 func TestCreateShortenedURLHandler(t *testing.T) {
+	config.shortenedURLBaseAddr = "http://localhost:8080"
+	config.serverAddress = "http://localhost:8080"
+
 	oldRandomHexImpl := randomHexImpl
 	defer func() { randomHexImpl = oldRandomHexImpl }()
 	successfulRandomHexImpl := func(n int) (string, error) { return "123", nil }

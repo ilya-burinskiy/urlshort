@@ -49,7 +49,8 @@ func CreateShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("http://localhost:8080/" + shortenedURLPath))
+	// TODO: maybe use some URL builder
+	w.Write([]byte(config.shortenedURLBaseAddr + "/" + shortenedURLPath))
 }
 
 func randomHex(n int) (string, error) {
