@@ -92,26 +92,29 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		randomHexImpl = tc.randomHexImpl
-		storage = tc.storage
+		t.Run(tc.name, func(t *testing.T) {
+			randomHexImpl = tc.randomHexImpl
+			storage = tc.storage
 
-		request, err := http.NewRequest(
-			tc.httpMethod,
-			testServer.URL+tc.path,
-			strings.NewReader("http://example.com"),
-		)
-		require.NoError(t, err)
-		request.Header.Set("Content-Type", tc.contentType)
+			request, err := http.NewRequest(
+				tc.httpMethod,
+				testServer.URL+tc.path,
+				strings.NewReader("http://example.com"),
+			)
+			require.NoError(t, err)
+			request.Header.Set("Content-Type", tc.contentType)
 
-		response, err := testServer.Client().Do(request)
-		require.NoError(t, err)
-		resBody, err := io.ReadAll(response.Body)
-		defer response.Body.Close()
+			response, err := testServer.Client().Do(request)
+			require.NoError(t, err)
+			resBody, err := io.ReadAll(response.Body)
+			defer response.Body.Close()
 
-		assert.Equal(t, tc.want.code, response.StatusCode)
-		assert.NoError(t, err)
-		assert.Equal(t, tc.want.response, string(resBody))
-		assert.Equal(t, tc.want.contentType, response.Header.Get("Content-Type"))
+			assert.Equal(t, tc.want.code, response.StatusCode)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want.response, string(resBody))
+			assert.Equal(t, tc.want.contentType, response.Header.Get("Content-Type"))
+
+		})
 	}
 }
 
@@ -166,25 +169,28 @@ func TestGetShortenedURLHandler(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		storage = tc.storage
+		t.Run(tc.name, func(t *testing.T) {
+			storage = tc.storage
 
-		request, err := http.NewRequest(
-			tc.httpMethod,
-			testServer.URL+tc.path,
-			nil,
-		)
-		require.NoError(t, err)
-		request.Header.Set("Content-Type", tc.contentType)
+			request, err := http.NewRequest(
+				tc.httpMethod,
+				testServer.URL+tc.path,
+				nil,
+			)
+			require.NoError(t, err)
+			request.Header.Set("Content-Type", tc.contentType)
 
-		transport := http.Transport{}
-		response, err := transport.RoundTrip(request)
-		require.NoError(t, err)
-		resBody, err := io.ReadAll(response.Body)
-		defer response.Body.Close()
+			transport := http.Transport{}
+			response, err := transport.RoundTrip(request)
+			require.NoError(t, err)
+			resBody, err := io.ReadAll(response.Body)
+			defer response.Body.Close()
 
-		assert.Equal(t, tc.want.code, response.StatusCode)
-		assert.NoError(t, err)
-		assert.Equal(t, tc.want.response, string(resBody))
-		assert.Equal(t, tc.want.contentType, response.Header.Get("Content-Type"))
+			assert.Equal(t, tc.want.code, response.StatusCode)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want.response, string(resBody))
+			assert.Equal(t, tc.want.contentType, response.Header.Get("Content-Type"))
+
+		})
 	}
 }
