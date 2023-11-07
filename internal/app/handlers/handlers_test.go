@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,34 +23,41 @@ type want struct {
 	contentType string
 }
 
+type mockRandHexStringGenerator struct{ mock.Mock }
+
+func (m *mockRandHexStringGenerator) Call(n int) (string, error) {
+	args := m.Called(n)
+	return args.String(0), args.Error(1)
+}
+
 var defaultConfig = configs.Config{
 	ShortenedURLBaseAddr: "http://localhost:8080",
 	ServerAddress:        "http://localhost:8080",
 }
 
 func TestCreateShortenedURLHandler(t *testing.T) {
-	oldRandomHexImpl := randomHexImpl
-	defer func() { randomHexImpl = oldRandomHexImpl }()
-	successfulRandomHexImpl := func(n int) (string, error) { return "123", nil }
-	unsuccessfulRandomHexImpl := func(n int) (string, error) { return "", errors.New("error") }
-
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig))
+	generatorMock := new(mockRandHexStringGenerator)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock))
 	defer testServer.Close()
 
+	type generatorCallResult struct {
+		returnValue string
+		error       error
+	}
 	testCases := []struct {
-		name          string
-		httpMethod    string
-		path          string
-		contentType   string
-		randomHexImpl func(int) (string, error)
-		want          want
+		name                string
+		httpMethod          string
+		path                string
+		contentType         string
+		generatorCallResult generatorCallResult
+		want                want
 	}{
 		{
-			name:          "responses with created status",
-			httpMethod:    http.MethodPost,
-			path:          "/",
-			contentType:   "text/plain",
-			randomHexImpl: successfulRandomHexImpl,
+			name:                "responses with created status",
+			httpMethod:          http.MethodPost,
+			path:                "/",
+			contentType:         "text/plain",
+			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
 			want: want{
 				code:        http.StatusCreated,
 				response:    "http://localhost:8080/123",
@@ -57,11 +65,11 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:          "responses with method not allowed if method is not POST",
-			httpMethod:    http.MethodGet,
-			path:          "/",
-			contentType:   "text/plain",
-			randomHexImpl: successfulRandomHexImpl,
+			name:                "responses with method not allowed if method is not POST",
+			httpMethod:          http.MethodGet,
+			path:                "/",
+			contentType:         "text/plain",
+			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
 			want: want{
 				code:        http.StatusMethodNotAllowed,
 				response:    "",
@@ -69,11 +77,11 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:          `responses with bad request if content-type is not "text/plain"`,
-			httpMethod:    http.MethodPost,
-			path:          "/",
-			contentType:   "application/json",
-			randomHexImpl: successfulRandomHexImpl,
+			name:                `responses with bad request if content-type is not "text/plain"`,
+			httpMethod:          http.MethodPost,
+			path:                "/",
+			contentType:         "application/json",
+			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
 			want: want{
 				code:        http.StatusUnsupportedMediaType,
 				response:    "",
@@ -81,11 +89,11 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:          "responses with unprocessable entity status",
-			httpMethod:    http.MethodPost,
-			path:          "/",
-			contentType:   "text/plain",
-			randomHexImpl: unsuccessfulRandomHexImpl,
+			name:                "responses with unprocessable entity status",
+			httpMethod:          http.MethodPost,
+			path:                "/",
+			contentType:         "text/plain",
+			generatorCallResult: generatorCallResult{returnValue: "", error: errors.New("error")},
 			want: want{
 				code:        http.StatusUnprocessableEntity,
 				response:    "error\n",
@@ -96,7 +104,11 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			randomHexImpl = tc.randomHexImpl
+			mockCall := generatorMock.On("Call", mock.Anything).Return(
+				tc.generatorCallResult.returnValue,
+				tc.generatorCallResult.error,
+			)
+			defer mockCall.Unset()
 			defer storage.Clear()
 
 			request, err := http.NewRequest(
@@ -122,7 +134,8 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 }
 
 func TestGetShortenedURLHandler(t *testing.T) {
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig))
+	generatorMock := new(mockRandHexStringGenerator)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock))
 	defer testServer.Close()
 
 	testCases := []struct {

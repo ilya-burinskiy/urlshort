@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,14 +8,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/ilya-burinskiy/urlshort/configs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
-func ShortenURLRouter(config configs.Config) chi.Router {
+func ShortenURLRouter(config configs.Config, rndGen services.RandHexStringGenerator) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.AllowContentType("text/plain"))
 
-	router.Post("/", CreateShortenedURLHandler(config))
+	router.Post("/", CreateShortenedURLHandler(config, rndGen))
 	router.Get("/{id}", GetShortenedURLHandler)
 
 	return router
@@ -33,41 +32,27 @@ func GetShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
 	http.RedirectHandler(originalURL, http.StatusTemporaryRedirect).ServeHTTP(w, r)
 }
 
-func CreateShortenedURLHandler(config configs.Config) http.HandlerFunc {
+func CreateShortenedURLHandler(config configs.Config, rndGen services.RandHexStringGenerator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		bytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		url := string(bytes)
+		originalURL := string(bytes)
 
-		shortenedURLPath, ok := storage.Get(url)
-		if !ok {
-			shortenedURLPath, err = randomHex(8)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-				return
-			}
-
-			storage.Put(url, shortenedURLPath)
+		shortenedURL, err := services.CreateShortenedURLService(
+			originalURL,
+			config.ShortenedURLBaseAddr,
+			8,
+			rndGen,
+		)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		// TODO: maybe use some URL builder
-		w.Write([]byte(config.ShortenedURLBaseAddr + "/" + shortenedURLPath))
+		w.Write([]byte(shortenedURL))
 	}
-}
-
-func randomHex(n int) (string, error) {
-	return randomHexImpl(n)
-}
-
-// NOTE: to mock randomHex in tests
-var randomHexImpl = func(n int) (string, error) {
-	bytes := make([]byte, n)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
 }
