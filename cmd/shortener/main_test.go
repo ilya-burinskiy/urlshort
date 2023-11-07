@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
+
 	"net/http/httptest"
 	"testing"
 
@@ -36,7 +38,6 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		httpMethod    string
 		path          string
 		contentType   string
-		storage       Storage
 		randomHexImpl func(int) (string, error)
 		want          want
 	}{
@@ -45,7 +46,6 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			httpMethod:    http.MethodPost,
 			path:          "/",
 			contentType:   "text/plain",
-			storage:       make(Storage),
 			randomHexImpl: successfulRandomHexImpl,
 			want: want{
 				code:        http.StatusCreated,
@@ -58,7 +58,6 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			httpMethod:    http.MethodGet,
 			path:          "/",
 			contentType:   "text/plain",
-			storage:       make(Storage),
 			randomHexImpl: successfulRandomHexImpl,
 			want: want{
 				code:        http.StatusMethodNotAllowed,
@@ -71,7 +70,6 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			httpMethod:    http.MethodPost,
 			path:          "/",
 			contentType:   "application/json",
-			storage:       make(Storage),
 			randomHexImpl: successfulRandomHexImpl,
 			want: want{
 				code:        http.StatusUnsupportedMediaType,
@@ -84,7 +82,6 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			httpMethod:    http.MethodPost,
 			path:          "/",
 			contentType:   "text/plain",
-			storage:       make(Storage),
 			randomHexImpl: unsuccessfulRandomHexImpl,
 			want: want{
 				code:        http.StatusUnprocessableEntity,
@@ -97,7 +94,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			randomHexImpl = tc.randomHexImpl
-			storage = tc.storage
+			defer storage.Clear()
 
 			request, err := http.NewRequest(
 				tc.httpMethod,
@@ -126,19 +123,19 @@ func TestGetShortenedURLHandler(t *testing.T) {
 	defer testServer.Close()
 
 	testCases := []struct {
-		name        string
-		httpMethod  string
-		path        string
-		contentType string
-		storage     Storage
-		want        want
+		name         string
+		httpMethod   string
+		path         string
+		contentType  string
+		existingURLs map[string]string
+		want         want
 	}{
 		{
-			name:        "responses with temporary redirect status",
-			httpMethod:  http.MethodGet,
-			path:        "/123",
-			contentType: "text/plain",
-			storage:     Storage{"http://example.com": "123"},
+			name:         "responses with temporary redirect status",
+			httpMethod:   http.MethodGet,
+			path:         "/123",
+			contentType:  "text/plain",
+			existingURLs: map[string]string{"http://example.com": "123"},
 			want: want{
 				code:        http.StatusTemporaryRedirect,
 				response:    "<a href=\"http://example.com\">Temporary Redirect</a>.\n\n",
@@ -146,11 +143,11 @@ func TestGetShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:        "responses with method not allowed if method is not GET",
-			httpMethod:  http.MethodPost,
-			path:        "/123",
-			contentType: "text/plain",
-			storage:     Storage{"http://example.com": "123"},
+			name:         "responses with method not allowed if method is not GET",
+			httpMethod:   http.MethodPost,
+			path:         "/123",
+			contentType:  "text/plain",
+			existingURLs: map[string]string{"http://example.com": "123"},
 			want: want{
 				code:        http.StatusMethodNotAllowed,
 				response:    "",
@@ -158,11 +155,11 @@ func TestGetShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:        "responses with bad request if original URL could nog be found",
-			httpMethod:  http.MethodGet,
-			path:        "/321",
-			contentType: "text/plain",
-			storage:     Storage{"http://example.com": "123"},
+			name:         "responses with bad request if original URL could nog be found",
+			httpMethod:   http.MethodGet,
+			path:         "/321",
+			contentType:  "text/plain",
+			existingURLs: map[string]string{"http://example.com": "123"},
 			want: want{
 				code:        http.StatusBadRequest,
 				response:    "Original URL for \"321\" not found\n",
@@ -173,7 +170,10 @@ func TestGetShortenedURLHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			storage = tc.storage
+			for origURL, shortenedPath := range tc.existingURLs {
+				storage.Put(origURL, shortenedPath)
+			}
+			defer storage.Clear()
 
 			request, err := http.NewRequest(
 				tc.httpMethod,
