@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"errors"
@@ -158,7 +158,7 @@ func TestGetShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:         "responses with bad request if original URL could nog be found",
+			name:         "responses with bad request if original URL could not be found",
 			httpMethod:   http.MethodGet,
 			path:         "/321",
 			contentType:  "text/plain",

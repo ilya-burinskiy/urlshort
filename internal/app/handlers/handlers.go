@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"crypto/rand"
@@ -45,16 +45,17 @@ func CreateShortenedURLHandler(config configs.Config) http.HandlerFunc {
 		shortenedURLPath, ok := storage.Get(url)
 		if !ok {
 			shortenedURLPath, err = randomHex(8)
-			storage.Put(url, shortenedURLPath)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 				return
 			}
+
+			storage.Put(url, shortenedURLPath)
 		}
 
 		w.WriteHeader(http.StatusCreated)
 		// TODO: maybe use some URL builder
-		w.Write([]byte(config.ServerAddress + "/" + shortenedURLPath))
+		w.Write([]byte(config.ShortenedURLBaseAddr + "/" + shortenedURLPath))
 	}
 }
 
