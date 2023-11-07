@@ -1,11 +1,13 @@
 package main
 
-import "net/http"
+import (
+	"github.com/ilya-burinskiy/urlshort/configs"
+	"net/http"
+)
 
 func main() {
-	parseFlags()
-
-	if err := http.ListenAndServe(config.serverAddress, ShortenURLRouter()); err != nil {
+	config := configs.Parse()
+	if err := http.ListenAndServe(config.ServerAddress, ShortenURLRouter(config)); err != nil {
 		panic(err)
 	}
 }

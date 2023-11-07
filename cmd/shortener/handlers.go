@@ -4,18 +4,20 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"io"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/ilya-burinskiy/urlshort/configs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
-func ShortenURLRouter() chi.Router {
+func ShortenURLRouter(config configs.Config) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.AllowContentType("text/plain"))
 
-	router.Post("/", CreateShortenedURLHandler)
+	router.Post("/", CreateShortenedURLHandler(config))
 	router.Get("/{id}", GetShortenedURLHandler)
 
 	return router
@@ -31,27 +33,29 @@ func GetShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
 	http.RedirectHandler(originalURL, http.StatusTemporaryRedirect).ServeHTTP(w, r)
 }
 
-func CreateShortenedURLHandler(w http.ResponseWriter, r *http.Request) {
-	bytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		return
-	}
-	url := string(bytes)
-
-	shortenedURLPath, ok := storage.Get(url)
-	if !ok {
-		shortenedURLPath, err = randomHex(8)
-		storage.Put(url, shortenedURLPath)
+func CreateShortenedURLHandler(config configs.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-	}
+		url := string(bytes)
 
-	w.WriteHeader(http.StatusCreated)
-	// TODO: maybe use some URL builder
-	w.Write([]byte(config.shortenedURLBaseAddr + "/" + shortenedURLPath))
+		shortenedURLPath, ok := storage.Get(url)
+		if !ok {
+			shortenedURLPath, err = randomHex(8)
+			storage.Put(url, shortenedURLPath)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		// TODO: maybe use some URL builder
+		w.Write([]byte(config.ServerAddress + "/" + shortenedURLPath))
+	}
 }
 
 func randomHex(n int) (string, error) {

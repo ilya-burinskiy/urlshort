@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ilya-burinskiy/urlshort/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 
 	"net/http/httptest"
@@ -21,16 +22,18 @@ type want struct {
 	contentType string
 }
 
-func TestCreateShortenedURLHandler(t *testing.T) {
-	config.shortenedURLBaseAddr = "http://localhost:8080"
-	config.serverAddress = "http://localhost:8080"
+var defaultConfig = configs.Config{
+	ShortenedURLBaseAddr: "http://localhost:8080",
+	ServerAddress:        "http://localhost:8080",
+}
 
+func TestCreateShortenedURLHandler(t *testing.T) {
 	oldRandomHexImpl := randomHexImpl
 	defer func() { randomHexImpl = oldRandomHexImpl }()
 	successfulRandomHexImpl := func(n int) (string, error) { return "123", nil }
 	unsuccessfulRandomHexImpl := func(n int) (string, error) { return "", errors.New("error") }
 
-	testServer := httptest.NewServer(ShortenURLRouter())
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig))
 	defer testServer.Close()
 
 	testCases := []struct {
@@ -119,7 +122,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 }
 
 func TestGetShortenedURLHandler(t *testing.T) {
-	testServer := httptest.NewServer(ShortenURLRouter())
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig))
 	defer testServer.Close()
 
 	testCases := []struct {
