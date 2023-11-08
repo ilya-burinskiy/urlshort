@@ -37,7 +37,8 @@ var defaultConfig = configs.Config{
 
 func TestCreateShortenedURLHandler(t *testing.T) {
 	generatorMock := new(mockRandHexStringGenerator)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock))
+	storage := storage.Storage{}
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storage))
 	defer testServer.Close()
 
 	type generatorCallResult struct {
@@ -135,7 +136,8 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 
 func TestGetShortenedURLHandler(t *testing.T) {
 	generatorMock := new(mockRandHexStringGenerator)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock))
+	storage := storage.Storage{}
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storage))
 	defer testServer.Close()
 
 	testCases := []struct {
