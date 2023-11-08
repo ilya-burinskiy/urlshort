@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/ilya-burinskiy/urlshort/configs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )

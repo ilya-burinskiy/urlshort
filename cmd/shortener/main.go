@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/ilya-burinskiy/urlshort/configs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
-	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
+	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"net/http"
 )
 
