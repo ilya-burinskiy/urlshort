@@ -10,7 +10,7 @@ import (
 
 func main() {
 	config := configs.Parse()
-	rndGen := utils.RandHexStringGenerator{}
+	rndGen := utils.StdRandHexStringGenerator{}
 	storage := storage.Storage{}
 	err := http.ListenAndServe(
 		config.ServerAddress,
