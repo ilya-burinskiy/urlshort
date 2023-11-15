@@ -23,11 +23,15 @@ func ShortenURLRouter(
 
 	router.Post(
 		"/",
-		logger.RequestLogger(CreateShortenedURLHandler(config, rndGen, storage)),
+		logger.ResponseLogger(
+			logger.RequestLogger(CreateShortenedURLHandler(config, rndGen, storage)),
+		),
 	)
 	router.Get(
 		"/{id}",
-		logger.RequestLogger(GetShortenedURLHandler(storage)),
+		logger.ResponseLogger(
+			logger.RequestLogger(GetShortenedURLHandler(storage)),
+		),
 	)
 
 	return router
