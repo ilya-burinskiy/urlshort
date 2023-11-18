@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,20 +20,32 @@ func ShortenURLRouter(
 	storage storage.Storage) chi.Router {
 
 	router := chi.NewRouter()
-	router.Use(middleware.AllowContentType("text/plain"))
-
-	router.Post(
-		"/",
-		logger.ResponseLogger(
-			logger.RequestLogger(CreateShortenedURLHandler(config, rndGen, storage)),
-		),
-	)
-	router.Get(
-		"/{id}",
-		logger.ResponseLogger(
-			logger.RequestLogger(GetShortenedURLHandler(storage)),
-		),
-	)
+	router.Group(func(router chi.Router) {
+		router.Use(middleware.AllowContentType("text/plain"))
+		router.Post(
+			"/",
+			logger.ResponseLogger(
+				logger.RequestLogger(CreateShortenedURLHandler(config, rndGen, storage)),
+			),
+		)
+		router.Get(
+			"/{id}",
+			logger.ResponseLogger(
+				logger.RequestLogger(GetShortenedURLHandler(storage)),
+			),
+		)
+	})
+	router.Group(func(router chi.Router) {
+		router.Use(middleware.AllowContentType("application/json"))
+		router.Post(
+			"/api/shorten",
+			logger.ResponseLogger(
+				logger.RequestLogger(
+					CreateShortenedURLFromJSONHandler(config, rndGen, storage),
+				),
+			),
+		)
+	})
 
 	return router
 }
@@ -76,5 +89,39 @@ func CreateShortenedURLHandler(
 
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(shortenedURL))
+	}
+}
+
+func CreateShortenedURLFromJSONHandler(
+	config configs.Config,
+	rndGen services.RandHexStringGenerator,
+	storage storage.Storage) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var requestBody map[string]string
+		encoder := json.NewEncoder(w)
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			encoder.Encode("invalid request")
+			return
+		}
+
+		originalURL := requestBody["url"]
+		shortenedURL, err := services.CreateShortenedURLService(
+			originalURL,
+			config.ShortenedURLBaseAddr,
+			8,
+			rndGen,
+			storage,
+		)
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			encoder.Encode("could not create shortened URL")
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		encoder.Encode(map[string]string{"result": shortenedURL})
 	}
 }
