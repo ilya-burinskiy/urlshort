@@ -20,31 +20,18 @@ func ShortenURLRouter(
 	storage storage.Storage) chi.Router {
 
 	router := chi.NewRouter()
+	router.Use(
+		handlerFunc2Handler(logger.ResponseLogger),
+		handlerFunc2Handler(logger.RequestLogger),
+	)
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("text/plain"))
-		router.Post(
-			"/",
-			logger.ResponseLogger(
-				logger.RequestLogger(CreateShortenedURLHandler(config, rndGen, storage)),
-			),
-		)
-		router.Get(
-			"/{id}",
-			logger.ResponseLogger(
-				logger.RequestLogger(GetShortenedURLHandler(storage)),
-			),
-		)
+		router.Post("/", CreateShortenedURLHandler(config, rndGen, storage))
+		router.Get("/{id}", GetShortenedURLHandler(storage))
 	})
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("application/json"))
-		router.Post(
-			"/api/shorten",
-			logger.ResponseLogger(
-				logger.RequestLogger(
-					CreateShortenedURLFromJSONHandler(config, rndGen, storage),
-				),
-			),
-		)
+		router.Post("/api/shorten", CreateShortenedURLFromJSONHandler(config, rndGen, storage))
 	})
 
 	return router
@@ -123,5 +110,11 @@ func CreateShortenedURLFromJSONHandler(
 
 		w.WriteHeader(http.StatusCreated)
 		encoder.Encode(map[string]string{"result": shortenedURL})
+	}
+}
+
+func handlerFunc2Handler(f func(http.HandlerFunc) http.HandlerFunc) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return f(h.(http.HandlerFunc))
 	}
 }
