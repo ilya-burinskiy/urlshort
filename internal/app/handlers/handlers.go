@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/ilya-burinskiy/urlshort/internal/app/compress"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
+
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
@@ -23,14 +26,16 @@ func ShortenURLRouter(
 	router.Use(
 		handlerFunc2Handler(logger.ResponseLogger),
 		handlerFunc2Handler(logger.RequestLogger),
+		handlerFunc2Handler(compressMiddleware),
+		middleware.AllowContentEncoding("gzip"),
 	)
 	router.Group(func(router chi.Router) {
-		router.Use(middleware.AllowContentType("text/plain"))
+		router.Use(middleware.AllowContentType("text/plain", "application/x-gzip"))
 		router.Post("/", CreateShortenedURLHandler(config, rndGen, storage))
 		router.Get("/{id}", GetShortenedURLHandler(storage))
 	})
 	router.Group(func(router chi.Router) {
-		router.Use(middleware.AllowContentType("application/json"))
+		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
 		router.Post("/api/shorten", CreateShortenedURLFromJSONHandler(config, rndGen, storage))
 	})
 
@@ -116,5 +121,29 @@ func CreateShortenedURLFromJSONHandler(
 func handlerFunc2Handler(f func(http.HandlerFunc) http.HandlerFunc) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return f(h.(http.HandlerFunc))
+	}
+}
+
+func compressMiddleware(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		contentType := r.Header.Get("Content-Type")
+		if strings.Contains(contentType, "gzip") {
+			compressReader, err := compress.NewReader(r.Body)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			r.Body = compressReader
+			defer compressReader.Close()
+		}
+
+		acceptEncoding := r.Header.Get("Accept-Encoding")
+		if strings.Contains(acceptEncoding, "gzip") {
+			responseWriterWithCompress := compress.NewWriter(w)
+			w = responseWriterWithCompress
+			defer responseWriterWithCompress.Close()
+		}
+
+		h.ServeHTTP(w, r)
 	}
 }
