@@ -120,6 +120,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			)
 			require.NoError(t, err)
 			request.Header.Set("Content-Type", tc.contentType)
+			request.Header.Set("Accept-Encoding", "identity")
 
 			response, err := testServer.Client().Do(request)
 			require.NoError(t, err)
@@ -243,6 +244,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 			)
 			require.NoError(t, err)
 			request.Header.Set("Content-Type", tc.contentType)
+			request.Header.Set("Accept-Encoding", "identity")
 
 			response, err := testServer.Client().Do(request)
 			require.NoError(t, err)
@@ -324,6 +326,7 @@ func TestGetShortenedURLHandler(t *testing.T) {
 			)
 			require.NoError(t, err)
 			request.Header.Set("Content-Type", tc.contentType)
+			request.Header.Set("Accept-Encoding", "identity")
 
 			transport := http.Transport{}
 			response, err := transport.RoundTrip(request)
