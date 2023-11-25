@@ -8,6 +8,7 @@ import (
 type Config struct {
 	ServerAddress        string
 	ShortenedURLBaseAddr string
+	FileStoragePath      string
 }
 
 func Parse() Config {
@@ -17,6 +18,11 @@ func Parse() Config {
 		&config.ShortenedURLBaseAddr,
 		"b", "http://localhost:8080",
 		"base address of the resulting shortened URL")
+	flag.StringVar(
+		&config.FileStoragePath,
+		"f", "../../storage",
+		"file storage path",
+	)
 	flag.Parse()
 
 	if envServerAddress := os.Getenv("SERVER_ADDRESS"); envServerAddress != "" {
@@ -24,6 +30,9 @@ func Parse() Config {
 	}
 	if envShortenedURLBaseAddr := os.Getenv("BASE_URL"); envShortenedURLBaseAddr != "" {
 		config.ShortenedURLBaseAddr = envShortenedURLBaseAddr
+	}
+	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
+		config.FileStoragePath = envFileStoragePath
 	}
 
 	return config

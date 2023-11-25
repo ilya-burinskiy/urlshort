@@ -13,12 +13,17 @@ import (
 func main() {
 	config := configs.Parse()
 	rndGen := services.StdRandHexStringGenerator{}
-	storage := storage.Storage{}
+	storage := storage.New(config.FileStoragePath)
+	err := storage.Load()
+	if err != nil {
+		panic(err)
+	}
+
 	if err := logger.Initialize("info"); err != nil {
 		panic(err)
 	}
 
-	err := http.ListenAndServe(
+	err = http.ListenAndServe(
 		config.ServerAddress,
 		handlers.ShortenURLRouter(config, rndGen, storage),
 	)

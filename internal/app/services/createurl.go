@@ -20,7 +20,10 @@ func CreateShortenedURLService(
 		if err != nil {
 			return "", err
 		}
-		storage.Put(originalURL, shortenedURLPath)
+		err = storage.Put(originalURL, shortenedURLPath)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// TODO: maybe use some URL builder
