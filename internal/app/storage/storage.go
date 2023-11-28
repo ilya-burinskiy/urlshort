@@ -76,3 +76,20 @@ func (storage Storage) Load() error {
 
 	return scanner.Err()
 }
+
+func (storage *Storage) Dump() error {
+	file, err := os.OpenFile(storage.filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("could not dump storage: %s", err)
+	}
+
+	encoder := json.NewEncoder(file)
+	for k, v := range storage.m {
+		encoder.Encode(record{Key: k, Val: v})
+	}
+	if err = file.Close(); err != nil {
+		return fmt.Errorf("could not dump storage: %s", err)
+	}
+
+	return nil
+}
