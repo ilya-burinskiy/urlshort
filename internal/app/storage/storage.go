@@ -34,21 +34,6 @@ func (storage Storage) Put(key, value string) (err error) {
 	if exists {
 		return nil
 	}
-
-	file, err := os.OpenFile(storage.filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		return fmt.Errorf("could not save key-value pair: %s", err)
-	}
-
-	encoder := json.NewEncoder(file)
-	err = encoder.Encode(record{Key: key, Val: value})
-	if err != nil {
-		return fmt.Errorf("could not save key-value pair: %s", err)
-	}
-	if err = file.Close(); err != nil {
-		return fmt.Errorf("could not save key-value pair: %s", err)
-	}
-
 	storage.m[key] = value
 
 	return nil
