@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
@@ -13,11 +14,18 @@ import (
 func main() {
 	config := configs.Parse()
 	rndGen := services.StdRandHexStringGenerator{}
+
 	storage := storage.New(config.FileStoragePath)
 	err := storage.Load()
 	if err != nil {
 		panic(err)
 	}
+	go func() {
+		for {
+			storage.Dump()
+			time.Sleep(5 * time.Second)
+		}
+	}()
 
 	if err := logger.Initialize("info"); err != nil {
 		panic(err)
