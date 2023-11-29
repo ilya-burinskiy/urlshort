@@ -49,11 +49,6 @@ func (storage Storage) KeyByValue(value string) (string, bool) {
 }
 
 func (storage Storage) Clear() error {
-	err := os.Truncate(storage.filePath, 0)
-	if err != nil {
-		return fmt.Errorf("could not clear storage: %s", err)
-	}
-
 	for k := range storage.m {
 		delete(storage.m, k)
 	}
