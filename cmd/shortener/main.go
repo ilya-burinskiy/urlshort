@@ -1,29 +1,55 @@
 package main
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
+	"go.uber.org/zap"
 )
 
 func main() {
 	config := configs.Parse()
 	rndGen := services.StdRandHexStringGenerator{}
-	storage := storage.Storage{}
+
+	storage := storage.New(config.FileStoragePath)
+	err := storage.Load()
+	if err != nil {
+		panic(err)
+	}
+	go services.StorageDumper(storage, 5*time.Second)
+
 	if err := logger.Initialize("info"); err != nil {
 		panic(err)
 	}
 
-	err := http.ListenAndServe(
-		config.ServerAddress,
-		handlers.ShortenURLRouter(config, rndGen, storage),
-	)
+	server := http.Server{
+		Handler: handlers.ShortenURLRouter(config, rndGen, storage),
+		Addr:    config.ServerAddress,
+	}
+	exit := make(chan os.Signal, 1)
+	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
+	go onExit(exit, &server, storage)
 
-	if err != nil {
+	err = server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
+}
+
+func onExit(exit <-chan os.Signal, server *http.Server, storage storage.Storage) {
+	<-exit
+	err := storage.Dump()
+	if err != nil {
+		logger.Log.Info("dump error", zap.String("msg", err.Error()))
+	}
+	server.Shutdown(context.TODO())
 }
