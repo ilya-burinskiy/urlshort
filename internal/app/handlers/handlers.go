@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
@@ -20,8 +21,18 @@ func ShortenURLRouter(
 	router := chi.NewRouter()
 	router.Use(middleware.AllowContentType("text/plain"))
 
-	router.Post("/", CreateShortenedURLHandler(config, rndGen, storage))
-	router.Get("/{id}", GetShortenedURLHandler(storage))
+	router.Post(
+		"/",
+		logger.ResponseLogger(
+			logger.RequestLogger(CreateShortenedURLHandler(config, rndGen, storage)),
+		),
+	)
+	router.Get(
+		"/{id}",
+		logger.ResponseLogger(
+			logger.RequestLogger(GetShortenedURLHandler(storage)),
+		),
+	)
 
 	return router
 }
