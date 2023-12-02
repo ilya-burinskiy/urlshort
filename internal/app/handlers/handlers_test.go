@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -128,6 +129,129 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			assert.Equal(t, tc.want.code, response.StatusCode)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.want.response, string(resBody))
+			assert.Equal(t, tc.want.contentType, response.Header.Get("Content-Type"))
+
+		})
+	}
+}
+
+func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
+	generatorMock := new(mockRandHexStringGenerator)
+	storage := storage.Storage{}
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storage))
+	defer testServer.Close()
+
+	toJSON := func(v interface{}) string {
+		result, err := json.Marshal(v)
+		require.NoError(t, err)
+
+		return string(result)
+	}
+
+	type generatorCallResult struct {
+		returnValue string
+		error       error
+	}
+	testCases := []struct {
+		name                string
+		httpMethod          string
+		path                string
+		requestBody         string
+		contentType         string
+		generatorCallResult generatorCallResult
+		want                want
+	}{
+		{
+			name:                "responses with created status",
+			httpMethod:          http.MethodPost,
+			path:                "/api/shorten",
+			requestBody:         toJSON(map[string]string{"url": "http://example.com"}),
+			contentType:         "application/json",
+			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
+			want: want{
+				code:        http.StatusCreated,
+				response:    toJSON(map[string]string{"result": "http://localhost:8080/123"}) + "\n",
+				contentType: "application/json",
+			},
+		},
+		{
+			name:                "responses with method not allowed if method is not POST",
+			httpMethod:          http.MethodGet,
+			path:                "/api/shorten",
+			contentType:         "application/json",
+			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
+			want: want{
+				code:        http.StatusMethodNotAllowed,
+				response:    "",
+				contentType: "",
+			},
+		},
+		{
+			name:                `responses with bad request if content-type is not "application/json"`,
+			httpMethod:          http.MethodPost,
+			path:                "/api/shorten",
+			requestBody:         toJSON(map[string]string{"url": "http://example.com"}),
+			contentType:         "text/plain",
+			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
+			want: want{
+				code:        http.StatusUnsupportedMediaType,
+				response:    "",
+				contentType: "",
+			},
+		},
+		{
+			name:                "responses with unprocessable entity if in body invalid json",
+			httpMethod:          http.MethodPost,
+			path:                "/api/shorten",
+			requestBody:         `url: http://example.com`,
+			contentType:         "application/json",
+			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
+			want: want{
+				code:        http.StatusUnprocessableEntity,
+				response:    toJSON("invalid request") + "\n",
+				contentType: "application/json",
+			},
+		},
+		{
+			name:                "responses with unprocessable entity status if could not create shortened URL",
+			httpMethod:          http.MethodPost,
+			path:                "/api/shorten",
+			requestBody:         toJSON(map[string]string{"url": "http://example.com"}),
+			contentType:         "application/json",
+			generatorCallResult: generatorCallResult{returnValue: "", error: errors.New("error")},
+			want: want{
+				code:        http.StatusUnprocessableEntity,
+				response:    toJSON("could not create shortened URL") + "\n",
+				contentType: "application/json",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCall := generatorMock.On("Call", mock.Anything).Return(
+				tc.generatorCallResult.returnValue,
+				tc.generatorCallResult.error,
+			)
+			defer mockCall.Unset()
+			defer storage.Clear()
+
+			request, err := http.NewRequest(
+				tc.httpMethod,
+				testServer.URL+tc.path,
+				strings.NewReader(tc.requestBody),
+			)
+			require.NoError(t, err)
+			request.Header.Set("Content-Type", tc.contentType)
+
+			response, err := testServer.Client().Do(request)
+			require.NoError(t, err)
+			responseBody, err := io.ReadAll(response.Body)
+			defer response.Body.Close()
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want.code, response.StatusCode)
+			assert.Equal(t, tc.want.response, string(responseBody))
 			assert.Equal(t, tc.want.contentType, response.Header.Get("Content-Type"))
 
 		})
