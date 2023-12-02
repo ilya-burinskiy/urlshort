@@ -42,17 +42,19 @@ func main() {
 	}
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		err = server.ListenAndServe()
-		if err != nil {
-			panic(err)
-		}
-	}()
+	go onExit(exit, &server, storage)
 
+	err = server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		panic(err)
+	}
+}
+
+func onExit(exit <-chan os.Signal, server *http.Server, storage storage.Storage) {
 	<-exit
-	server.Shutdown(context.TODO())
-	err = storage.Dump()
+	err := storage.Dump()
 	if err != nil {
 		logger.Log.Info("dump error", zap.String("msg", err.Error()))
 	}
+	server.Shutdown(context.TODO())
 }
