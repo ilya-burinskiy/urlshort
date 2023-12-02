@@ -25,12 +25,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	go func() {
-		for {
-			storage.Dump()
-			time.Sleep(5 * time.Second)
-		}
-	}()
+	go services.StorageDumper(storage, 5*time.Second)
 
 	if err := logger.Initialize("info"); err != nil {
 		panic(err)
