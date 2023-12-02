@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"os/signal"
@@ -49,6 +50,7 @@ func main() {
 	}()
 
 	<-exit
+	server.Shutdown(context.TODO())
 	err = storage.Dump()
 	if err != nil {
 		logger.Log.Info("dump error", zap.String("msg", err.Error()))
