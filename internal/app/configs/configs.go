@@ -9,6 +9,7 @@ type Config struct {
 	ServerAddress        string
 	ShortenedURLBaseAddr string
 	FileStoragePath      string
+	DatabaseDSN          string
 }
 
 func Parse() Config {
@@ -23,6 +24,11 @@ func Parse() Config {
 		"f", "../../storage",
 		"file storage path",
 	)
+	flag.StringVar(
+		&config.DatabaseDSN,
+		"d", "postgres://user:password@localhost:5432/database",
+		"database URL",
+	)
 	flag.Parse()
 
 	if envServerAddress := os.Getenv("SERVER_ADDRESS"); envServerAddress != "" {
@@ -33,6 +39,9 @@ func Parse() Config {
 	}
 	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
 		config.FileStoragePath = envFileStoragePath
+	}
+	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
+		config.DatabaseDSN = envDatabaseDSN
 	}
 
 	return config

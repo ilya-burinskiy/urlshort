@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
+	"github.com/jackc/pgx/v5"
 )
 
 func ShortenURLRouter(
@@ -30,6 +32,7 @@ func ShortenURLRouter(
 		router.Use(middleware.AllowContentType("text/plain", "application/x-gzip"))
 		router.Post("/", CreateShortenedURLHandler(config, rndGen, storage))
 		router.Get("/{id}", GetShortenedURLHandler(storage))
+		router.Get("/ping", PingDB(config.DatabaseDSN))
 	})
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
@@ -112,6 +115,19 @@ func CreateShortenedURLFromJSONHandler(
 
 		w.WriteHeader(http.StatusCreated)
 		encoder.Encode(map[string]string{"result": shortenedURL})
+	}
+}
+
+func PingDB(databaseDSN string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		conn, err := pgx.Connect(context.Background(), databaseDSN)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		defer conn.Close(context.Background())
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
