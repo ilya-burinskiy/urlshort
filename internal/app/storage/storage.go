@@ -7,6 +7,58 @@ import (
 	"os"
 )
 
+type FileStorage struct {
+	filePath string
+}
+
+type record struct {
+	Key string `json:"key"`
+	Val string `json:"val"`
+}
+
+func NewFileStorage(filePath string) FileStorage {
+	return FileStorage{filePath: filePath}
+}
+
+func (fs FileStorage) Restore(ms MapStorage) error {
+	file, err := os.OpenFile(fs.filePath, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return fmt.Errorf("could not load data from file: %s", err)
+	}
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		var r record
+		data := scanner.Bytes()
+		err = json.Unmarshal(data, &r)
+		if err != nil {
+			continue
+		}
+
+		ms.Put(r.Key, r.Val)
+	}
+
+	return scanner.Err()
+}
+
+func (fs FileStorage) Dump(ms MapStorage) error {
+	file, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("could not dump storage: %s", err)
+	}
+
+	encoder := json.NewEncoder(file)
+	// NOTE: maybe define some Iter method for MapStorage
+	for k, v := range ms.m {
+		encoder.Encode(record{Key: k, Val: v})
+	}
+	if err = file.Close(); err != nil {
+		return fmt.Errorf("could not dump storage: %s", err)
+	}
+
+	return nil
+}
+
 type Storage struct {
 	m        map[string]string
 	filePath string
