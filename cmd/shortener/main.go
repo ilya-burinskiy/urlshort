@@ -20,8 +20,9 @@ func main() {
 	config := configs.Parse()
 	rndGen := services.StdRandHexStringGenerator{}
 
-	storage := storage.New(config.FileStoragePath)
-	err := storage.Load()
+	persistentStorage := storage.NewFileStorage(config.FileStoragePath)
+	storage := storage.NewMapStorage(persistentStorage)
+	err := storage.Restore()
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +46,7 @@ func main() {
 	}
 }
 
-func onExit(exit <-chan os.Signal, server *http.Server, storage storage.Storage) {
+func onExit(exit <-chan os.Signal, server *http.Server, storage storage.MapStorage) {
 	<-exit
 	err := storage.Dump()
 	if err != nil {

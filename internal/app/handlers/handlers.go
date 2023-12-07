@@ -19,7 +19,7 @@ import (
 func ShortenURLRouter(
 	config configs.Config,
 	rndGen services.RandHexStringGenerator,
-	storage storage.Storage) chi.Router {
+	storage storage.MapStorage) chi.Router {
 
 	router := chi.NewRouter()
 	router.Use(
@@ -42,7 +42,7 @@ func ShortenURLRouter(
 	return router
 }
 
-func GetShortenedURLHandler(storage storage.Storage) http.HandlerFunc {
+func GetShortenedURLHandler(storage storage.MapStorage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		shortenedPath := chi.URLParam(r, "id")
 		originalURL, ok := storage.KeyByValue(shortenedPath)
@@ -57,7 +57,7 @@ func GetShortenedURLHandler(storage storage.Storage) http.HandlerFunc {
 func CreateShortenedURLHandler(
 	config configs.Config,
 	rndGen services.RandHexStringGenerator,
-	storage storage.Storage) http.HandlerFunc {
+	storage storage.MapStorage) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		bytes, err := io.ReadAll(r.Body)
@@ -87,7 +87,7 @@ func CreateShortenedURLHandler(
 func CreateShortenedURLFromJSONHandler(
 	config configs.Config,
 	rndGen services.RandHexStringGenerator,
-	storage storage.Storage) http.HandlerFunc {
+	storage storage.MapStorage) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -11,7 +11,7 @@ func CreateShortenedURLService(
 	shortenedURLBaseAddr string,
 	pathLen int,
 	randGen RandHexStringGenerator,
-	storage storage.Storage,
+	storage storage.MapStorage,
 ) (string, error) {
 	shortenedURLPath, ok := storage.Get(originalURL)
 	if !ok {
@@ -20,10 +20,7 @@ func CreateShortenedURLService(
 		if err != nil {
 			return "", err
 		}
-		err = storage.Put(originalURL, shortenedURLPath)
-		if err != nil {
-			return "", err
-		}
+		storage.Put(originalURL, shortenedURLPath)
 	}
 
 	// TODO: maybe use some URL builder
