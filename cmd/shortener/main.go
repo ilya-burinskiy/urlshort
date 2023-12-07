@@ -20,7 +20,7 @@ func main() {
 	config := configs.Parse()
 	rndGen := services.StdRandHexStringGenerator{}
 
-	persistentStorage := storage.NewFileStorage(config.FileStoragePath)
+	persistentStorage := storage.ConfigurePersistentStorage(config)
 	storage := storage.NewMapStorage(persistentStorage)
 	err := storage.Restore()
 	if err != nil {

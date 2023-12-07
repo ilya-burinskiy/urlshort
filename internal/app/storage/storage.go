@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
@@ -62,6 +63,16 @@ func (ms MapStorage) Restore() error {
 type PersistentStorage interface {
 	Dump(ms MapStorage) error
 	Restore(ms MapStorage) error
+}
+
+func ConfigurePersistentStorage(config configs.Config) PersistentStorage {
+	if config.DatabaseDSN != "" {
+		return NewDBStorage(config.DatabaseDSN)
+	}
+	if config.FileStoragePath != "" {
+		return NewFileStorage(config.FileStoragePath)
+	}
+	return nil
 }
 
 type FileStorage struct {
