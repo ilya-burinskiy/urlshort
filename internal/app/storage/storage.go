@@ -7,6 +7,58 @@ import (
 	"os"
 )
 
+type MapStorage struct {
+	m                 map[string]string
+	persistentStorage PersistentStorage
+}
+
+func NewMapStorage(ps PersistentStorage) MapStorage {
+	return MapStorage{m: make(map[string]string), persistentStorage: ps}
+}
+
+func (ms MapStorage) Put(key, val string) {
+	ms.m[key] = val
+}
+
+func (ms MapStorage) Get(key string) (string, bool) {
+	val, ok := ms.m[key]
+	return val, ok
+}
+
+func (ms MapStorage) Clear() {
+	for k := range ms.m {
+		delete(ms.m, k)
+	}
+}
+
+func (ms MapStorage) KeyByValue(value string) (string, bool) {
+	for k, v := range ms.m {
+		if v == value {
+			return k, true
+		}
+	}
+	return "", false
+}
+
+func (ms MapStorage) Dump() error {
+	if ms.persistentStorage != nil {
+		return ms.persistentStorage.Dump(ms)
+	}
+	return nil
+}
+
+func (ms MapStorage) Restore() error {
+	if ms.persistentStorage != nil {
+		return ms.persistentStorage.Restore(ms)
+	}
+	return nil
+}
+
+type PersistentStorage interface {
+	Dump(ms MapStorage) error
+	Restore(ms MapStorage) error
+}
+
 type FileStorage struct {
 	filePath string
 }
