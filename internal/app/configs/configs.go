@@ -19,16 +19,8 @@ func Parse() Config {
 		&config.ShortenedURLBaseAddr,
 		"b", "http://localhost:8080",
 		"base address of the resulting shortened URL")
-	flag.StringVar(
-		&config.FileStoragePath,
-		"f", "../../storage",
-		"file storage path",
-	)
-	flag.StringVar(
-		&config.DatabaseDSN,
-		"d", "postgres://user:password@localhost:5432/database",
-		"database URL",
-	)
+	flag.StringVar(&config.FileStoragePath, "f", "", "file storage path")
+	flag.StringVar(&config.DatabaseDSN, "d", "", "database URL")
 	flag.Parse()
 
 	if envServerAddress := os.Getenv("SERVER_ADDRESS"); envServerAddress != "" {
