@@ -2,9 +2,14 @@ package storage
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
+	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 type MapStorage struct {
@@ -106,6 +111,63 @@ func (fs FileStorage) Dump(ms MapStorage) error {
 	}
 	if err = file.Close(); err != nil {
 		return fmt.Errorf("could not dump storage: %s", err)
+	}
+
+	return nil
+}
+
+type DBStorage struct {
+	dsn string
+}
+
+func NewDBStorage(dsn string) DBStorage {
+	return DBStorage{dsn: dsn}
+}
+
+func (ds DBStorage) Restore(ms MapStorage) error {
+	conn, err := pgx.Connect(context.Background(), ds.dsn)
+	if err != nil {
+		return fmt.Errorf("could not restore data from db: %s", err)
+	}
+	defer conn.Close(context.Background())
+
+	var originalURL, shortenedPath string
+	rows, err := conn.Query(context.Background(), `SELECT "original_url", "shortened_path" FROM "urls"`)
+	if err != nil {
+		logger.Log.Info("could not exec restore query", zap.String("msg", err.Error()))
+	}
+	for rows.Next() {
+		err = rows.Scan(&originalURL, &shortenedPath)
+		if err != nil {
+			logger.Log.Info("could not scan urls", zap.String("msg", err.Error()))
+			continue
+		}
+		ms.Put(originalURL, shortenedPath)
+	}
+
+	return nil
+}
+
+func (ds DBStorage) Dump(ms MapStorage) error {
+	conn, err := pgx.Connect(context.Background(), ds.dsn)
+	if err != nil {
+		return fmt.Errorf("could not restore data from db: %s", err)
+	}
+	defer conn.Close(context.Background())
+
+	query := `
+		INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath)
+		ON CONFLICT DO NOTHING`
+	for originalURL, shortenedPath := range ms.m {
+		queryArgs := pgx.NamedArgs{
+			"originalURL":   originalURL,
+			"shortenedPath": shortenedPath,
+		}
+		_, err = conn.Exec(context.Background(), query, queryArgs)
+		if err != nil {
+			logger.Log.Info("could not insert urls", zap.String("msg", err.Error()))
+			continue
+		}
 	}
 
 	return nil
