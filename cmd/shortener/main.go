@@ -19,6 +19,9 @@ import (
 func main() {
 	config := configs.Parse()
 	rndGen := services.StdRandHexStringGenerator{}
+	if err := logger.Initialize("info"); err != nil {
+		panic(err)
+	}
 
 	persistentStorage := storage.ConfigurePersistentStorage(config)
 	storage := storage.NewMapStorage(persistentStorage)
@@ -27,10 +30,6 @@ func main() {
 		panic(err)
 	}
 	go services.StorageDumper(storage, 5*time.Second)
-
-	if err := logger.Initialize("info"); err != nil {
-		panic(err)
-	}
 
 	server := http.Server{
 		Handler: handlers.ShortenURLRouter(config, rndGen, storage),
