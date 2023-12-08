@@ -132,6 +132,23 @@ type DBStorage struct {
 }
 
 func NewDBStorage(dsn string) DBStorage {
+	conn, err := pgx.Connect(context.Background(), dsn)
+	if err != nil {
+		logger.Log.Info("could not migrate db", zap.String("msg", err.Error()))
+		return DBStorage{dsn: dsn}
+	}
+	migrateQuery := `
+		CREATE TABLE IF NOT EXISTS "urls" (
+			"id" bigserial PRIMARY KEY,
+			"original_url" varchar(499) UNIQUE NOT NULL,
+			"shortened_path" varchar(499) UNIQUE NOT NULL
+		)`
+	_, err = conn.Exec(context.Background(), migrateQuery)
+	if err != nil {
+		logger.Log.Info("could not migrate db", zap.String("msg", err.Error()))
+		return DBStorage{dsn: dsn}
+	}
+
 	return DBStorage{dsn: dsn}
 }
 
