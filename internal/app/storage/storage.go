@@ -24,6 +24,7 @@ func NewMapStorage(ps PersistentStorage) MapStorage {
 
 func (ms MapStorage) Put(key, val string) {
 	ms.m[key] = val
+	ms.Dump()
 }
 
 func (ms MapStorage) Get(key string) (string, bool) {
