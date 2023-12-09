@@ -6,14 +6,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -29,7 +27,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	go services.StorageDumper(storage, 5*time.Second)
 
 	server := http.Server{
 		Handler: handlers.ShortenURLRouter(config, rndGen, storage),
@@ -47,9 +44,5 @@ func main() {
 
 func onExit(exit <-chan os.Signal, server *http.Server, storage storage.MapStorage) {
 	<-exit
-	err := storage.Dump()
-	if err != nil {
-		logger.Log.Info("dump error", zap.String("msg", err.Error()))
-	}
 	server.Shutdown(context.TODO())
 }
