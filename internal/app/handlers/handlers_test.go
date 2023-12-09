@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/golang/mock/gomock"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
+	"github.com/ilya-burinskiy/urlshort/internal/app/storage/mocks"
 
 	"net/http/httptest"
 	"testing"
@@ -38,10 +40,19 @@ var defaultConfig = configs.Config{
 }
 
 func TestCreateShortenedURLHandler(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	storageMock := mocks.NewMockStorage(ctrl)
+	storageMock.EXPECT().
+		GetShortenedPath(gomock.Any(), gomock.Any()).
+		AnyTimes().
+		Return("", storage.ErrNotFound)
+	storageMock.EXPECT().
+		Save(gomock.Any(), gomock.Any(), gomock.Any()).
+		AnyTimes().
+		Return(nil)
+
 	generatorMock := new(mockRandHexStringGenerator)
-	persistentStorage := storage.NewFileStorage(defaultConfig.FileStoragePath)
-	storage := storage.NewMapStorage(persistentStorage)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storage))
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
 	defer testServer.Close()
 
 	type generatorCallResult struct {
@@ -113,7 +124,6 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 				tc.generatorCallResult.error,
 			)
 			defer mockCall.Unset()
-			defer storage.Clear()
 
 			request, err := http.NewRequest(
 				tc.httpMethod,
@@ -139,10 +149,19 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 }
 
 func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	storageMock := mocks.NewMockStorage(ctrl)
+	storageMock.EXPECT().
+		GetShortenedPath(gomock.Any(), gomock.Any()).
+		AnyTimes().
+		Return("", storage.ErrNotFound)
+	storageMock.EXPECT().
+		Save(gomock.Any(), gomock.Any(), gomock.Any()).
+		AnyTimes().
+		Return(nil)
+
 	generatorMock := new(mockRandHexStringGenerator)
-	persistentStorage := storage.NewFileStorage(defaultConfig.FileStoragePath)
-	storage := storage.NewMapStorage(persistentStorage)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storage))
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
 	defer testServer.Close()
 
 	toJSON := func(v interface{}) string {
@@ -238,7 +257,6 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 				tc.generatorCallResult.error,
 			)
 			defer mockCall.Unset()
-			defer storage.Clear()
 
 			request, err := http.NewRequest(
 				tc.httpMethod,
@@ -264,26 +282,29 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 }
 
 func TestGetShortenedURLHandler(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	storageMock := mocks.NewMockStorage(ctrl)
+	gomock.InOrder(
+		storageMock.EXPECT().GetOriginalURL(gomock.Any(), gomock.Any()).Return("http://example.com", nil),
+		storageMock.EXPECT().GetOriginalURL(gomock.Any(), gomock.Any()).Return("", storage.ErrNotFound),
+	)
+
 	generatorMock := new(mockRandHexStringGenerator)
-	persistentStorage := storage.NewFileStorage(defaultConfig.FileStoragePath)
-	storage := storage.NewMapStorage(persistentStorage)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storage))
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
 	defer testServer.Close()
 
 	testCases := []struct {
-		name         string
-		httpMethod   string
-		path         string
-		contentType  string
-		existingURLs map[string]string
-		want         want
+		name        string
+		httpMethod  string
+		path        string
+		contentType string
+		want        want
 	}{
 		{
-			name:         "responses with temporary redirect status",
-			httpMethod:   http.MethodGet,
-			path:         "/123",
-			contentType:  "text/plain",
-			existingURLs: map[string]string{"http://example.com": "123"},
+			name:        "responses with temporary redirect status",
+			httpMethod:  http.MethodGet,
+			path:        "/123",
+			contentType: "text/plain",
 			want: want{
 				code:        http.StatusTemporaryRedirect,
 				response:    "<a href=\"http://example.com\">Temporary Redirect</a>.\n\n",
@@ -291,11 +312,10 @@ func TestGetShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:         "responses with method not allowed if method is not GET",
-			httpMethod:   http.MethodPost,
-			path:         "/123",
-			contentType:  "text/plain",
-			existingURLs: map[string]string{"http://example.com": "123"},
+			name:        "responses with method not allowed if method is not GET",
+			httpMethod:  http.MethodPost,
+			path:        "/123",
+			contentType: "text/plain",
 			want: want{
 				code:        http.StatusMethodNotAllowed,
 				response:    "",
@@ -303,11 +323,10 @@ func TestGetShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:         "responses with bad request if original URL could not be found",
-			httpMethod:   http.MethodGet,
-			path:         "/321",
-			contentType:  "text/plain",
-			existingURLs: map[string]string{"http://example.com": "123"},
+			name:        "responses with bad request if original URL could not be found",
+			httpMethod:  http.MethodGet,
+			path:        "/321",
+			contentType: "text/plain",
 			want: want{
 				code:        http.StatusBadRequest,
 				response:    "Original URL for \"321\" not found\n",
@@ -318,13 +337,6 @@ func TestGetShortenedURLHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			for origURL, shortenedPath := range tc.existingURLs {
-				storage.Put(origURL, shortenedPath)
-			}
-			defer func() {
-				storage.Clear()
-			}()
-
 			request, err := http.NewRequest(
 				tc.httpMethod,
 				testServer.URL+tc.path,

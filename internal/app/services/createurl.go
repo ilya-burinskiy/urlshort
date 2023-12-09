@@ -1,6 +1,11 @@
 package services
 
-import "github.com/ilya-burinskiy/urlshort/internal/app/storage"
+import (
+	"context"
+	"errors"
+
+	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
+)
 
 type RandHexStringGenerator interface {
 	Call(n int) (string, error)
@@ -11,16 +16,16 @@ func CreateShortenedURLService(
 	shortenedURLBaseAddr string,
 	pathLen int,
 	randGen RandHexStringGenerator,
-	storage storage.MapStorage,
+	s storage.Storage,
 ) (string, error) {
-	shortenedURLPath, ok := storage.Get(originalURL)
-	if !ok {
+	shortenedURLPath, err := s.GetShortenedPath(context.Background(), originalURL)
+	if errors.Is(err, storage.ErrNotFound) {
 		var err error
 		shortenedURLPath, err = randGen.Call(pathLen)
 		if err != nil {
 			return "", err
 		}
-		storage.Put(originalURL, shortenedURLPath)
+		s.Save(context.Background(), originalURL, shortenedURLPath)
 	}
 
 	// TODO: maybe use some URL builder

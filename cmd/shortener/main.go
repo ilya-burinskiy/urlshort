@@ -6,12 +6,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -21,28 +23,51 @@ func main() {
 		panic(err)
 	}
 
-	persistentStorage := storage.ConfigurePersistentStorage(config)
-	storage := storage.NewMapStorage(persistentStorage)
-	err := storage.Restore()
-	if err != nil {
-		panic(err)
+	var s storage.Storage = storage.NewMapStorage()
+	var fs *storage.FileStorage
+	if config.DatabaseDSN != "" {
+		var err error
+		s, err = storage.NewDBStorage(config.DatabaseDSN)
+		if err != nil {
+			panic(err)
+		}
+	} else if config.FileStoragePath != "" {
+		fs = storage.NewFileStorage(config.FileStoragePath)
+		err := fs.Restore(s.(storage.MapStorage))
+		if err != nil {
+			panic(err)
+		}
+		go services.StorageDumper(s.(storage.MapStorage), *fs, 5*time.Second)
 	}
 
 	server := http.Server{
-		Handler: handlers.ShortenURLRouter(config, rndGen, storage),
+		Handler: handlers.ShortenURLRouter(config, rndGen, s),
 		Addr:    config.ServerAddress,
 	}
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
-	go onExit(exit, &server, storage)
+	go onExit(exit, &server, fs, s)
 
-	err = server.ListenAndServe()
+	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
+
 }
 
-func onExit(exit <-chan os.Signal, server *http.Server, storage storage.MapStorage) {
+func onExit(exit <-chan os.Signal, server *http.Server, fs *storage.FileStorage, s storage.Storage) {
 	<-exit
+	switch s := s.(type) {
+	case storage.MapStorage:
+		if fs != nil {
+			err := fs.Dump(s)
+			if err != nil {
+				logger.Log.Info("on exit error", zap.String("err", err.Error()))
+			}
+		}
+	case *storage.DBStorage:
+		s.Close()
+	}
+
 	server.Shutdown(context.TODO())
 }

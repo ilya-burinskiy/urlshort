@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,7 +20,7 @@ import (
 func ShortenURLRouter(
 	config configs.Config,
 	rndGen services.RandHexStringGenerator,
-	storage storage.MapStorage) chi.Router {
+	storage storage.Storage) chi.Router {
 
 	router := chi.NewRouter()
 	router.Use(
@@ -42,11 +43,11 @@ func ShortenURLRouter(
 	return router
 }
 
-func GetShortenedURLHandler(storage storage.MapStorage) http.HandlerFunc {
+func GetShortenedURLHandler(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		shortenedPath := chi.URLParam(r, "id")
-		originalURL, ok := storage.KeyByValue(shortenedPath)
-		if !ok {
+		originalURL, err := s.GetOriginalURL(context.Background(), shortenedPath)
+		if errors.Is(err, storage.ErrNotFound) {
 			http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
 			return
 		}
@@ -57,7 +58,7 @@ func GetShortenedURLHandler(storage storage.MapStorage) http.HandlerFunc {
 func CreateShortenedURLHandler(
 	config configs.Config,
 	rndGen services.RandHexStringGenerator,
-	storage storage.MapStorage) http.HandlerFunc {
+	s storage.Storage) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		bytes, err := io.ReadAll(r.Body)
@@ -72,7 +73,7 @@ func CreateShortenedURLHandler(
 			config.ShortenedURLBaseAddr,
 			8,
 			rndGen,
-			storage,
+			s,
 		)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
@@ -87,7 +88,7 @@ func CreateShortenedURLHandler(
 func CreateShortenedURLFromJSONHandler(
 	config configs.Config,
 	rndGen services.RandHexStringGenerator,
-	storage storage.MapStorage) http.HandlerFunc {
+	storage storage.Storage) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
