@@ -3,9 +3,15 @@ package storage
 import (
 	"bufio"
 	"context"
+	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
@@ -133,24 +139,36 @@ type DBStorage struct {
 }
 
 func NewDBStorage(dsn string) DBStorage {
-	conn, err := pgx.Connect(context.Background(), dsn)
+	err := runMigrations(dsn)
 	if err != nil {
-		logger.Log.Info("could not migrate db", zap.String("msg", err.Error()))
-		return DBStorage{dsn: dsn}
-	}
-	migrateQuery := `
-		CREATE TABLE IF NOT EXISTS "urls" (
-			"id" bigserial PRIMARY KEY,
-			"original_url" varchar(499) UNIQUE NOT NULL,
-			"shortened_path" varchar(499) UNIQUE NOT NULL
-		)`
-	_, err = conn.Exec(context.Background(), migrateQuery)
-	if err != nil {
-		logger.Log.Info("could not migrate db", zap.String("msg", err.Error()))
-		return DBStorage{dsn: dsn}
+		logger.Log.Info("failed to run migrations", zap.String("msg", err.Error()))
 	}
 
 	return DBStorage{dsn: dsn}
+}
+
+//go:embed db/migrations/*.sql
+var migrationsDir embed.FS
+
+func runMigrations(dsn string) error {
+
+	d, err := iofs.New(migrationsDir, "db/migrations")
+	if err != nil {
+		return fmt.Errorf("failed to return an iofs driver: %w", err)
+	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", d, dsn)
+	if err != nil {
+		return fmt.Errorf("failed to get a new migrate instance: %w", err)
+	}
+
+	if err := m.Up(); err != nil {
+		if !errors.Is(err, migrate.ErrNoChange) {
+			return fmt.Errorf("failed to apply migrations: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (ds DBStorage) Restore(ms MapStorage) error {
