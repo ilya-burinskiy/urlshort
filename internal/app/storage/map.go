@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+
+	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 )
 
 type MapStorage map[string]string
@@ -30,5 +32,12 @@ func (ms MapStorage) GetOriginalURL(ctx context.Context, shortenedPath string) (
 
 func (ms MapStorage) Save(ctx context.Context, originalURL, shortenedPath string) error {
 	ms[originalURL] = shortenedPath
+	return nil
+}
+
+func (ms MapStorage) BatchSave(ctx context.Context, records []models.Record) error {
+	for _, record := range records {
+		ms[record.OriginalURL] = record.ShortenedPath
+	}
 	return nil
 }
