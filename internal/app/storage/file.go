@@ -33,7 +33,7 @@ func (fs *FileStorage) Restore(ms MapStorage) error {
 			continue
 		}
 
-		ms.Save(context.Background(), r.OriginalURL, r.ShortenedPath)
+		ms.Save(context.Background(), r)
 	}
 
 	return scanner.Err()
@@ -47,8 +47,10 @@ func (fs *FileStorage) Dump(ms MapStorage) error {
 
 	encoder := json.NewEncoder(file)
 	// NOTE: maybe define some Iter method for MapStorage
-	for k, v := range ms {
-		encoder.Encode(models.Record{OriginalURL: k, ShortenedPath: v})
+	for k, vals := range ms {
+		shortenedPath := vals[0]
+		correlationID := vals[1]
+		encoder.Encode(models.Record{OriginalURL: k, ShortenedPath: shortenedPath, CorrelationID: correlationID})
 	}
 	if err = file.Close(); err != nil {
 		return fmt.Errorf("could not dump storage: %w", err)

@@ -71,12 +71,12 @@ func (db *DBStorage) GetOriginalURL(ctx context.Context, shortenedPath string) (
 	return originalURL, nil
 }
 
-func (db *DBStorage) Save(ctx context.Context, originalURL, shortenedPath string) error {
+func (db *DBStorage) Save(ctx context.Context, record models.Record) error {
 	_, err := db.pool.Exec(
 		ctx,
 		`INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath)
 		 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = @shortenedPath`,
-		pgx.NamedArgs{"originalURL": originalURL, "shortenedPath": shortenedPath},
+		pgx.NamedArgs{"originalURL": record.OriginalURL, "shortenedPath": record.ShortenedPath},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to save original url and shortened path: %w", err)
@@ -90,7 +90,7 @@ func (db *DBStorage) BatchSave(ctx context.Context, records []models.Record) err
 		_, err := db.pool.Exec(
 			ctx,
 			`INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath)
-			 ON CONFLICT ("original_url") DO UPDATE SET "shortened_pat" = @shortenedPath`,
+			 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = @shortenedPath`,
 			pgx.NamedArgs{"originalURL": r.OriginalURL, "shortenedPath": r.ShortenedPath},
 		)
 		if err != nil {

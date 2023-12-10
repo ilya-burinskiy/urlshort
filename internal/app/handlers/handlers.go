@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
+	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"github.com/jackc/pgx/v5"
@@ -38,6 +39,7 @@ func ShortenURLRouter(
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
 		router.Post("/api/shorten", CreateShortenedURLFromJSONHandler(config, rndGen, storage))
+		router.Post("/api/shorten/batch", BatchCreateShortenedURLHandler(config, rndGen, storage))
 	})
 
 	return router
@@ -116,6 +118,67 @@ func CreateShortenedURLFromJSONHandler(
 
 		w.WriteHeader(http.StatusCreated)
 		encoder.Encode(map[string]string{"result": shortenedURL})
+	}
+}
+
+func BatchCreateShortenedURLHandler(
+	config configs.Config,
+	rndGen services.RandHexStringGenerator,
+	s storage.Storage,
+) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		records := make([]models.Record, 0)
+		err := json.NewDecoder(r.Body).Decode(&records)
+		if err != nil {
+			http.Error(
+				w,
+				fmt.Sprintf("failed to parse request body: %s", err.Error()),
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		for i := range records {
+			shortenedPath, err := s.GetShortenedPath(context.Background(), records[i].OriginalURL)
+			if errors.Is(err, storage.ErrNotFound) {
+				shortenedPath, err = rndGen.Call(8)
+				if err != nil {
+					http.Error(
+						w,
+						fmt.Sprintf("failed to parse request body: %s", err.Error()),
+						http.StatusBadRequest,
+					)
+					return
+				}
+				records[i].ShortenedPath = shortenedPath
+			}
+			records[i].ShortenedPath = shortenedPath
+		}
+
+		err = s.BatchSave(context.Background(), records)
+		if err != nil {
+			http.Error(
+				w,
+				fmt.Sprintf("failed to parse request body: %s", err.Error()),
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+
+		response := make([]map[string]string, len(records))
+		for i := range records {
+			response[i] = map[string]string{
+				"correlation_id": records[i].CorrelationID,
+				"short_url":      config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
+			}
+		}
+		encoder := json.NewEncoder(w)
+		w.WriteHeader(http.StatusCreated)
+		encoder.Encode(response)
 	}
 }
 

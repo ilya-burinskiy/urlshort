@@ -47,7 +47,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		AnyTimes().
 		Return("", storage.ErrNotFound)
 	storageMock.EXPECT().
-		Save(gomock.Any(), gomock.Any(), gomock.Any()).
+		Save(gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return(nil)
 
@@ -156,7 +156,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 		AnyTimes().
 		Return("", storage.ErrNotFound)
 	storageMock.EXPECT().
-		Save(gomock.Any(), gomock.Any(), gomock.Any()).
+		Save(gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return(nil)
 

@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	models "github.com/ilya-burinskiy/urlshort/internal/app/models"
 )
 
 // MockStorage is a mock of Storage interface.
@@ -32,6 +33,20 @@ func NewMockStorage(ctrl *gomock.Controller) *MockStorage {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 	return m.recorder
+}
+
+// BatchSave mocks base method.
+func (m *MockStorage) BatchSave(arg0 context.Context, arg1 []models.Record) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchSave", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BatchSave indicates an expected call of BatchSave.
+func (mr *MockStorageMockRecorder) BatchSave(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchSave", reflect.TypeOf((*MockStorage)(nil).BatchSave), arg0, arg1)
 }
 
 // GetOriginalURL mocks base method.
@@ -65,15 +80,15 @@ func (mr *MockStorageMockRecorder) GetShortenedPath(arg0, arg1 interface{}) *gom
 }
 
 // Save mocks base method.
-func (m *MockStorage) Save(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockStorage) Save(arg0 context.Context, arg1 models.Record) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Save", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Save", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Save indicates an expected call of Save.
-func (mr *MockStorageMockRecorder) Save(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockStorageMockRecorder) Save(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockStorage)(nil).Save), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockStorage)(nil).Save), arg0, arg1)
 }

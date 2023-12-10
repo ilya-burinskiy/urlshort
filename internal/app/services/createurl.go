@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
@@ -25,7 +26,10 @@ func CreateShortenedURLService(
 		if err != nil {
 			return "", err
 		}
-		s.Save(context.Background(), originalURL, shortenedURLPath)
+		s.Save(
+			context.Background(),
+			models.Record{OriginalURL: originalURL, ShortenedPath: shortenedURLPath},
+		)
 	}
 
 	// TODO: maybe use some URL builder
