@@ -9,6 +9,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -81,6 +82,21 @@ func (db *DBStorage) Save(ctx context.Context, originalURL, shortenedPath string
 		return fmt.Errorf("failed to save original url and shortened path: %w", err)
 	}
 
+	return nil
+}
+
+func (db *DBStorage) BatchSave(ctx context.Context, records []models.Record) error {
+	for _, r := range records {
+		_, err := db.pool.Exec(
+			ctx,
+			`INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath)
+			 ON CONFLICT ("original_url") DO UPDATE SET "shortened_pat" = @shortenedPath`,
+			pgx.NamedArgs{"originalURL": r.OriginalURL, "shortenedPath": r.ShortenedPath},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to batch save records: %w", err)
+		}
+	}
 	return nil
 }
 
