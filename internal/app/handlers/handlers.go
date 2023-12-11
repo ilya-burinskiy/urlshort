@@ -78,6 +78,12 @@ func CreateShortenedURLHandler(
 			s,
 		)
 		if err != nil {
+			var notUniqErr *storage.ErrNotUnique
+			if errors.As(err, &notUniqErr) {
+				w.WriteHeader(http.StatusConflict)
+				w.Write([]byte(config.ShortenedURLBaseAddr + "/" + notUniqErr.Record.ShortenedPath))
+				return
+			}
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
@@ -90,7 +96,7 @@ func CreateShortenedURLHandler(
 func CreateShortenedURLFromJSONHandler(
 	config configs.Config,
 	rndGen services.RandHexStringGenerator,
-	storage storage.Storage) http.HandlerFunc {
+	s storage.Storage) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -108,9 +114,18 @@ func CreateShortenedURLFromJSONHandler(
 			config.ShortenedURLBaseAddr,
 			8,
 			rndGen,
-			storage,
+			s,
 		)
 		if err != nil {
+			var notUniqErr *storage.ErrNotUnique
+			if errors.As(err, &notUniqErr) {
+				w.WriteHeader(http.StatusConflict)
+				encoder.Encode(
+					map[string]string{"result": config.ShortenedURLBaseAddr + "/" +
+						notUniqErr.Record.ShortenedPath},
+				)
+				return
+			}
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			encoder.Encode("could not create shortened URL")
 			return

@@ -26,10 +26,15 @@ func CreateShortenedURLService(
 		if err != nil {
 			return "", err
 		}
-		s.Save(
+		err = s.Save(
 			context.Background(),
 			models.Record{OriginalURL: originalURL, ShortenedPath: shortenedURLPath},
 		)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		return "", storage.NewErrNotUnique(models.Record{ShortenedPath: shortenedURLPath})
 	}
 
 	// TODO: maybe use some URL builder

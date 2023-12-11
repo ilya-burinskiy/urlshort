@@ -33,6 +33,11 @@ func (ms MapStorage) GetOriginalURL(ctx context.Context, searchedShortenedPath s
 }
 
 func (ms MapStorage) Save(ctx context.Context, r models.Record) error {
+	_, ok := ms[r.OriginalURL]
+	if ok {
+		return NewErrNotUnique(r)
+	}
+
 	ms[r.OriginalURL] = [2]string{r.ShortenedPath, r.CorrelationID}
 	return nil
 }

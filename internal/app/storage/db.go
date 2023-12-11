@@ -10,7 +10,9 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -74,11 +76,16 @@ func (db *DBStorage) GetOriginalURL(ctx context.Context, shortenedPath string) (
 func (db *DBStorage) Save(ctx context.Context, record models.Record) error {
 	_, err := db.pool.Exec(
 		ctx,
-		`INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath)
-		 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = @shortenedPath`,
+		`INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath)`,
 		pgx.NamedArgs{"originalURL": record.OriginalURL, "shortenedPath": record.ShortenedPath},
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == pgerrcode.UniqueViolation {
+				return NewErrNotUnique(record)
+			}
+		}
 		return fmt.Errorf("failed to save original url and shortened path: %w", err)
 	}
 
