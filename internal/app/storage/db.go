@@ -35,42 +35,54 @@ func NewDBStorage(dsn string) (*DBStorage, error) {
 	}, nil
 }
 
-func (db *DBStorage) GetShortenedPath(ctx context.Context, originalURL string) (string, error) {
+func (db *DBStorage) FindByOriginalURL(ctx context.Context, originalURL string) (models.Record, error) {
 	row := db.pool.QueryRow(
 		ctx,
-		`SELECT "shortened_path" FROM "urls" WHERE "original_url" = @originalUrl`,
+		`SELECT "shortened_path",
+				"correlation_id"
+		 FROM "urls" WHERE "original_url" = @originalUrl`,
 		pgx.NamedArgs{"originalUrl": originalURL},
 	)
-	var shortenedPath string
-	err := row.Scan(&shortenedPath)
+	var shortenedPath, correlationID string
+	err := row.Scan(&shortenedPath, &correlationID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrNotFound
+			return models.Record{}, ErrNotFound
 		}
 
-		return "", fmt.Errorf("failed to get shortened path: %w", err)
+		return models.Record{}, fmt.Errorf("failed to get shortened path: %w", err)
 	}
 
-	return shortenedPath, nil
+	return models.Record{
+		OriginalURL:   originalURL,
+		ShortenedPath: shortenedPath,
+		CorrelationID: correlationID,
+	}, nil
 }
 
-func (db *DBStorage) GetOriginalURL(ctx context.Context, shortenedPath string) (string, error) {
+func (db *DBStorage) FindByShortenedPath(ctx context.Context, shortenedPath string) (models.Record, error) {
 	row := db.pool.QueryRow(
 		ctx,
-		`SELECT "original_url" FROM "urls" WHERE "shortened_path" = @shortenedPath`,
+		`SELECT "original_url",
+				"correlation_id"
+		 FROM "urls" WHERE "shortened_path" = @shortenedPath`,
 		pgx.NamedArgs{"shortenedPath": shortenedPath},
 	)
-	var originalURL string
-	err := row.Scan(&originalURL)
+	var originalURL, correlationID string
+	err := row.Scan(&originalURL, &correlationID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrNotFound
+			return models.Record{}, ErrNotFound
 		}
 
-		return "", fmt.Errorf("failed to get original url: %w", err)
+		return models.Record{}, fmt.Errorf("failed to get original url: %w", err)
 	}
 
-	return originalURL, nil
+	return models.Record{
+		OriginalURL:   originalURL,
+		ShortenedPath: shortenedPath,
+		CorrelationID: correlationID,
+	}, nil
 }
 
 func (db *DBStorage) Save(ctx context.Context, record models.Record) error {

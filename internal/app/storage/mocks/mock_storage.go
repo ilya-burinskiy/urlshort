@@ -49,34 +49,34 @@ func (mr *MockStorageMockRecorder) BatchSave(arg0, arg1 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchSave", reflect.TypeOf((*MockStorage)(nil).BatchSave), arg0, arg1)
 }
 
-// GetOriginalURL mocks base method.
-func (m *MockStorage) GetOriginalURL(arg0 context.Context, arg1 string) (string, error) {
+// FindByOriginalURL mocks base method.
+func (m *MockStorage) FindByOriginalURL(arg0 context.Context, arg1 string) (models.Record, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOriginalURL", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "FindByOriginalURL", arg0, arg1)
+	ret0, _ := ret[0].(models.Record)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetOriginalURL indicates an expected call of GetOriginalURL.
-func (mr *MockStorageMockRecorder) GetOriginalURL(arg0, arg1 interface{}) *gomock.Call {
+// FindByOriginalURL indicates an expected call of FindByOriginalURL.
+func (mr *MockStorageMockRecorder) FindByOriginalURL(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOriginalURL", reflect.TypeOf((*MockStorage)(nil).GetOriginalURL), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByOriginalURL", reflect.TypeOf((*MockStorage)(nil).FindByOriginalURL), arg0, arg1)
 }
 
-// GetShortenedPath mocks base method.
-func (m *MockStorage) GetShortenedPath(arg0 context.Context, arg1 string) (string, error) {
+// FindByShortenedPath mocks base method.
+func (m *MockStorage) FindByShortenedPath(arg0 context.Context, arg1 string) (models.Record, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetShortenedPath", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "FindByShortenedPath", arg0, arg1)
+	ret0, _ := ret[0].(models.Record)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetShortenedPath indicates an expected call of GetShortenedPath.
-func (mr *MockStorageMockRecorder) GetShortenedPath(arg0, arg1 interface{}) *gomock.Call {
+// FindByShortenedPath indicates an expected call of FindByShortenedPath.
+func (mr *MockStorageMockRecorder) FindByShortenedPath(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetShortenedPath", reflect.TypeOf((*MockStorage)(nil).GetShortenedPath), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByShortenedPath", reflect.TypeOf((*MockStorage)(nil).FindByShortenedPath), arg0, arg1)
 }
 
 // Save mocks base method.

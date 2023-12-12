@@ -12,24 +12,30 @@ func NewMapStorage() MapStorage {
 	return MapStorage(make(map[string][2]string))
 }
 
-func (ms MapStorage) GetShortenedPath(ctx context.Context, originalURL string) (string, error) {
+func (ms MapStorage) FindByOriginalURL(ctx context.Context, originalURL string) (models.Record, error) {
 	attrs, ok := ms[originalURL]
 	if !ok {
-		return "", ErrNotFound
+		return models.Record{}, ErrNotFound
 	}
-	shortenedPath := attrs[0]
 
-	return shortenedPath, nil
+	return models.Record{
+		OriginalURL:   originalURL,
+		ShortenedPath: attrs[0],
+		CorrelationID: attrs[1],
+	}, nil
 }
 
-func (ms MapStorage) GetOriginalURL(ctx context.Context, searchedShortenedPath string) (string, error) {
+func (ms MapStorage) FindByShortenedPath(ctx context.Context, searchedShortenedPath string) (models.Record, error) {
 	for originalURL, vals := range ms {
-		shortenedPath := vals[0]
-		if shortenedPath == searchedShortenedPath {
-			return originalURL, nil
+		if vals[0] == searchedShortenedPath {
+			return models.Record{
+				OriginalURL:   originalURL,
+				ShortenedPath: vals[0],
+				CorrelationID: vals[1],
+			}, nil
 		}
 	}
-	return "", ErrNotFound
+	return models.Record{}, ErrNotFound
 }
 
 func (ms MapStorage) Save(ctx context.Context, r models.Record) error {
