@@ -145,20 +145,7 @@ func BatchCreateShortenedURLHandler(
 			return
 		}
 
-		for i := range records {
-			shortenedPath, err := rndGen.Call(8)
-			if err != nil {
-				w.WriteHeader(http.StatusUnprocessableEntity)
-				encoder.Encode(
-					fmt.Sprintf("failed to generate shortened path for \"%s\": %s",
-						records[i].OriginalURL, err.Error()),
-				)
-				return
-			}
-			records[i].ShortenedPath = shortenedPath
-		}
-
-		err = s.BatchSave(context.Background(), records)
+		err = services.BatchCreate(records, 8, rndGen, s)
 		if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			encoder.Encode(err.Error())
@@ -166,7 +153,6 @@ func BatchCreateShortenedURLHandler(
 		}
 
 		w.WriteHeader(http.StatusCreated)
-
 		response := make([]map[string]string, len(records))
 		for i := range records {
 			response[i] = map[string]string{

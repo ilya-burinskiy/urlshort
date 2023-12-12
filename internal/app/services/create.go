@@ -42,3 +42,26 @@ func Create(
 
 	return models.Record{}, storage.NewErrNotUnique(record)
 }
+
+func BatchCreate(
+	records []models.Record,
+	pahtLen int,
+	rndGen RandHexStringGenerator,
+	s storage.Storage) error {
+
+	for i := range records {
+		shortenedPath, err := rndGen.Call(8)
+		if err != nil {
+			return fmt.Errorf("failed to generate shortened path for \"%s\": %s",
+				records[i].OriginalURL, err.Error())
+		}
+		records[i].ShortenedPath = shortenedPath
+	}
+
+	err := s.BatchSave(context.Background(), records)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
