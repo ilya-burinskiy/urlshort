@@ -105,18 +105,24 @@ func (db *DBStorage) Save(ctx context.Context, record models.Record) error {
 }
 
 func (db *DBStorage) BatchSave(ctx context.Context, records []models.Record) error {
+	tx, err := db.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to batch save records: %w", err)
+	}
+
 	for _, r := range records {
-		_, err := db.pool.Exec(
+		_, err := tx.Exec(
 			ctx,
 			`INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath)
 			 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = @shortenedPath`,
 			pgx.NamedArgs{"originalURL": r.OriginalURL, "shortenedPath": r.ShortenedPath},
 		)
 		if err != nil {
+			tx.Rollback(ctx)
 			return fmt.Errorf("failed to batch save records: %w", err)
 		}
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 func (db *DBStorage) Close() {
