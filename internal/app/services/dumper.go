@@ -6,9 +6,9 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
-func StorageDumper(ms storage.MapStorage, fs storage.FileStorage, timeout time.Duration) {
+func StorageDumper(ms storage.MapStorage, timeout time.Duration) {
 	for {
-		fs.Dump(ms)
+		ms.Dump()
 		time.Sleep(timeout)
 	}
 }
