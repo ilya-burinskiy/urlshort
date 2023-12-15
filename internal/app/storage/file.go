@@ -36,6 +36,11 @@ func (fs *FileStorage) Restore(ms MapStorage) error {
 		ms.Save(context.Background(), r)
 	}
 
+	err = file.Close()
+	if err != nil {
+		return fmt.Errorf("could not restore data: %s", err.Error())
+	}
+
 	return scanner.Err()
 }
 
