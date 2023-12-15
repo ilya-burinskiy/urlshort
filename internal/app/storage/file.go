@@ -47,9 +47,9 @@ func (fs *FileStorage) Dump(ms MapStorage) error {
 
 	encoder := json.NewEncoder(file)
 	// NOTE: maybe define some Iter method for MapStorage
-	for k, vals := range ms {
-		shortenedPath := vals[0]
-		correlationID := vals[1]
+	for k, l := range ms {
+		shortenedPath := l.ShortenedPath
+		correlationID := l.CorrelationID
 		encoder.Encode(models.Record{OriginalURL: k, ShortenedPath: shortenedPath, CorrelationID: correlationID})
 	}
 	if err = file.Close(); err != nil {
