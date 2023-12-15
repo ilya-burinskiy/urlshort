@@ -38,3 +38,11 @@ func Parse() Config {
 
 	return config
 }
+
+func (c Config) UseDBStorage() bool {
+	return c.DatabaseDSN != ""
+}
+
+func (c Config) UseFileStorage() bool {
+	return c.FileStoragePath != ""
+}

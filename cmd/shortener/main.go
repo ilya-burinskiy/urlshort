@@ -25,13 +25,13 @@ func main() {
 
 	var s storage.Storage = storage.NewMapStorage()
 	var fs *storage.FileStorage
-	if config.DatabaseDSN != "" {
+	if config.UseDBStorage() {
 		var err error
 		s, err = storage.NewDBStorage(config.DatabaseDSN)
 		if err != nil {
 			panic(err)
 		}
-	} else if config.FileStoragePath != "" {
+	} else if config.UseFileStorage() {
 		fs = storage.NewFileStorage(config.FileStoragePath)
 		err := fs.Restore(s.(storage.MapStorage))
 		if err != nil {
