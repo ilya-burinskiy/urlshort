@@ -23,39 +23,19 @@ func main() {
 		panic(err)
 	}
 
-	var s storage.Storage
-	if config.UseDBStorage() {
-		var err error
-		s, err = storage.NewDBStorage(config.DatabaseDSN)
-		if err != nil {
-			panic(err)
-		}
-	} else if config.UseFileStorage() {
-		fs := storage.NewFileStorage(config.FileStoragePath)
-		s = storage.NewMapStorage(fs)
-		err := fs.Restore(s.(storage.MapStorage))
-		if err != nil {
-			panic(err)
-		}
-
-		go services.StorageDumper(s.(storage.MapStorage), 5*time.Second)
-	} else {
-		s = storage.NewMapStorage(nil)
-	}
-
+	urlsStorage := configureURLStorage(config)
 	server := http.Server{
-		Handler: handlers.ShortenURLRouter(config, rndGen, s),
+		Handler: handlers.ShortenURLRouter(config, rndGen, urlsStorage),
 		Addr:    config.ServerAddress,
 	}
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
-	go onExit(exit, &server, s)
+	go onExit(exit, &server, urlsStorage)
 
 	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)
 	}
-
 }
 
 func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
@@ -71,4 +51,29 @@ func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 	}
 
 	server.Shutdown(context.TODO())
+}
+
+func configureURLStorage(config configs.Config) storage.Storage {
+	var urlsStorage storage.Storage
+	if config.UseDBStorage() {
+		var err error
+		urlsStorage, err = storage.NewDBStorage(config.DatabaseDSN)
+		if err != nil {
+			panic(err)
+		}
+	} else if config.UseFileStorage() {
+		fs := storage.NewFileStorage(config.FileStoragePath)
+		urlsStorage = storage.NewMapStorage(fs)
+		err := fs.Restore(urlsStorage.(storage.MapStorage))
+		if err != nil {
+			panic(err)
+		}
+
+		go services.StorageDumper(urlsStorage.(storage.MapStorage), 5*time.Second)
+	} else {
+		urlsStorage = storage.NewMapStorage(nil)
+	}
+
+
+	return urlsStorage
 }
