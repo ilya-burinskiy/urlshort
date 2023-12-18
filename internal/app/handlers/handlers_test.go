@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage/mocks"
 
@@ -43,9 +44,9 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	storageMock := mocks.NewMockStorage(ctrl)
 	storageMock.EXPECT().
-		GetShortenedPath(gomock.Any(), gomock.Any()).
+		FindByOriginalURL(gomock.Any(), gomock.Any()).
 		AnyTimes().
-		Return("", storage.ErrNotFound)
+		Return(models.Record{}, storage.ErrNotFound)
 	storageMock.EXPECT().
 		Save(gomock.Any(), gomock.Any()).
 		AnyTimes().
@@ -111,7 +112,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			generatorCallResult: generatorCallResult{returnValue: "", error: errors.New("error")},
 			want: want{
 				code:        http.StatusUnprocessableEntity,
-				response:    "error\n",
+				response:    "failed to generate shortened path: error\n",
 				contentType: "text/plain; charset=utf-8",
 			},
 		},
@@ -152,9 +153,9 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	storageMock := mocks.NewMockStorage(ctrl)
 	storageMock.EXPECT().
-		GetShortenedPath(gomock.Any(), gomock.Any()).
+		FindByOriginalURL(gomock.Any(), gomock.Any()).
 		AnyTimes().
-		Return("", storage.ErrNotFound)
+		Return(models.Record{}, storage.ErrNotFound)
 	storageMock.EXPECT().
 		Save(gomock.Any(), gomock.Any()).
 		AnyTimes().
@@ -285,8 +286,12 @@ func TestGetShortenedURLHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	storageMock := mocks.NewMockStorage(ctrl)
 	gomock.InOrder(
-		storageMock.EXPECT().GetOriginalURL(gomock.Any(), gomock.Any()).Return("http://example.com", nil),
-		storageMock.EXPECT().GetOriginalURL(gomock.Any(), gomock.Any()).Return("", storage.ErrNotFound),
+		storageMock.EXPECT().
+			FindByShortenedPath(gomock.Any(), gomock.Any()).
+			Return(models.Record{OriginalURL: "http://example.com"}, nil),
+		storageMock.EXPECT().
+			FindByShortenedPath(gomock.Any(), gomock.Any()).
+			Return(models.Record{}, storage.ErrNotFound),
 	)
 
 	generatorMock := new(mockRandHexStringGenerator)

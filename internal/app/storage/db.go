@@ -10,7 +10,9 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -33,52 +35,69 @@ func NewDBStorage(dsn string) (*DBStorage, error) {
 	}, nil
 }
 
-func (db *DBStorage) GetShortenedPath(ctx context.Context, originalURL string) (string, error) {
+func (db *DBStorage) FindByOriginalURL(ctx context.Context, originalURL string) (models.Record, error) {
 	row := db.pool.QueryRow(
 		ctx,
-		`SELECT "shortened_path" FROM "urls" WHERE "original_url" = @originalUrl`,
+		`SELECT "shortened_path",
+				"correlation_id"
+		 FROM "urls" WHERE "original_url" = @originalUrl`,
 		pgx.NamedArgs{"originalUrl": originalURL},
 	)
-	var shortenedPath string
-	err := row.Scan(&shortenedPath)
+	var shortenedPath, correlationID string
+	err := row.Scan(&shortenedPath, &correlationID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrNotFound
+			return models.Record{}, ErrNotFound
 		}
 
-		return "", fmt.Errorf("failed to get shortened path: %w", err)
+		return models.Record{}, fmt.Errorf("failed to get shortened path: %w", err)
 	}
 
-	return shortenedPath, nil
+	return models.Record{
+		OriginalURL:   originalURL,
+		ShortenedPath: shortenedPath,
+		CorrelationID: correlationID,
+	}, nil
 }
 
-func (db *DBStorage) GetOriginalURL(ctx context.Context, shortenedPath string) (string, error) {
+func (db *DBStorage) FindByShortenedPath(ctx context.Context, shortenedPath string) (models.Record, error) {
 	row := db.pool.QueryRow(
 		ctx,
-		`SELECT "original_url" FROM "urls" WHERE "shortened_path" = @shortenedPath`,
+		`SELECT "original_url",
+				"correlation_id"
+		 FROM "urls" WHERE "shortened_path" = @shortenedPath`,
 		pgx.NamedArgs{"shortenedPath": shortenedPath},
 	)
-	var originalURL string
-	err := row.Scan(&originalURL)
+	var originalURL, correlationID string
+	err := row.Scan(&originalURL, &correlationID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrNotFound
+			return models.Record{}, ErrNotFound
 		}
 
-		return "", fmt.Errorf("failed to get original url: %w", err)
+		return models.Record{}, fmt.Errorf("failed to get original url: %w", err)
 	}
 
-	return originalURL, nil
+	return models.Record{
+		OriginalURL:   originalURL,
+		ShortenedPath: shortenedPath,
+		CorrelationID: correlationID,
+	}, nil
 }
 
 func (db *DBStorage) Save(ctx context.Context, record models.Record) error {
 	_, err := db.pool.Exec(
 		ctx,
-		`INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath)
-		 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = @shortenedPath`,
+		`INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath)`,
 		pgx.NamedArgs{"originalURL": record.OriginalURL, "shortenedPath": record.ShortenedPath},
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == pgerrcode.UniqueViolation {
+				return NewErrNotUnique(record)
+			}
+		}
 		return fmt.Errorf("failed to save original url and shortened path: %w", err)
 	}
 
@@ -86,18 +105,24 @@ func (db *DBStorage) Save(ctx context.Context, record models.Record) error {
 }
 
 func (db *DBStorage) BatchSave(ctx context.Context, records []models.Record) error {
+	tx, err := db.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to batch save records: %w", err)
+	}
+
 	for _, r := range records {
-		_, err := db.pool.Exec(
+		_, err := tx.Exec(
 			ctx,
 			`INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath)
 			 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = @shortenedPath`,
 			pgx.NamedArgs{"originalURL": r.OriginalURL, "shortenedPath": r.ShortenedPath},
 		)
 		if err != nil {
+			tx.Rollback(ctx)
 			return fmt.Errorf("failed to batch save records: %w", err)
 		}
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 func (db *DBStorage) Close() {

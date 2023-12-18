@@ -36,6 +36,11 @@ func (fs *FileStorage) Restore(ms MapStorage) error {
 		ms.Save(context.Background(), r)
 	}
 
+	err = file.Close()
+	if err != nil {
+		return fmt.Errorf("could not restore data: %s", err.Error())
+	}
+
 	return scanner.Err()
 }
 
@@ -47,9 +52,9 @@ func (fs *FileStorage) Dump(ms MapStorage) error {
 
 	encoder := json.NewEncoder(file)
 	// NOTE: maybe define some Iter method for MapStorage
-	for k, vals := range ms {
-		shortenedPath := vals[0]
-		correlationID := vals[1]
+	for k, l := range ms.m {
+		shortenedPath := l.ShortenedPath
+		correlationID := l.CorrelationID
 		encoder.Encode(models.Record{OriginalURL: k, ShortenedPath: shortenedPath, CorrelationID: correlationID})
 	}
 	if err = file.Close(); err != nil {

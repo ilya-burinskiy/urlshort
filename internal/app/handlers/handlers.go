@@ -48,12 +48,13 @@ func ShortenURLRouter(
 func GetShortenedURLHandler(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		shortenedPath := chi.URLParam(r, "id")
-		originalURL, err := s.GetOriginalURL(context.Background(), shortenedPath)
+		record, err := s.FindByShortenedPath(context.Background(), shortenedPath)
 		if errors.Is(err, storage.ErrNotFound) {
 			http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
 			return
 		}
-		http.RedirectHandler(originalURL, http.StatusTemporaryRedirect).ServeHTTP(w, r)
+		http.RedirectHandler(record.OriginalURL, http.StatusTemporaryRedirect).
+			ServeHTTP(w, r)
 	}
 }
 
@@ -70,27 +71,27 @@ func CreateShortenedURLHandler(
 		}
 		originalURL := string(bytes)
 
-		shortenedURL, err := services.CreateShortenedURLService(
-			originalURL,
-			config.ShortenedURLBaseAddr,
-			8,
-			rndGen,
-			s,
-		)
+		record, err := services.Create(originalURL, 8, rndGen, s)
 		if err != nil {
+			var notUniqErr *storage.ErrNotUnique
+			if errors.As(err, &notUniqErr) {
+				w.WriteHeader(http.StatusConflict)
+				w.Write([]byte(config.ShortenedURLBaseAddr + "/" + notUniqErr.Record.ShortenedPath))
+				return
+			}
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(shortenedURL))
+		w.Write([]byte(config.ShortenedURLBaseAddr + "/" + record.ShortenedPath))
 	}
 }
 
 func CreateShortenedURLFromJSONHandler(
 	config configs.Config,
 	rndGen services.RandHexStringGenerator,
-	storage storage.Storage) http.HandlerFunc {
+	s storage.Storage) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -103,21 +104,24 @@ func CreateShortenedURLFromJSONHandler(
 		}
 
 		originalURL := requestBody["url"]
-		shortenedURL, err := services.CreateShortenedURLService(
-			originalURL,
-			config.ShortenedURLBaseAddr,
-			8,
-			rndGen,
-			storage,
-		)
+		record, err := services.Create(originalURL, 8, rndGen, s)
 		if err != nil {
+			var notUniqErr *storage.ErrNotUnique
+			if errors.As(err, &notUniqErr) {
+				w.WriteHeader(http.StatusConflict)
+				encoder.Encode(
+					map[string]string{"result": config.ShortenedURLBaseAddr + "/" +
+						notUniqErr.Record.ShortenedPath},
+				)
+				return
+			}
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			encoder.Encode("could not create shortened URL")
 			return
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		encoder.Encode(map[string]string{"result": shortenedURL})
+		encoder.Encode(map[string]string{"result": config.ShortenedURLBaseAddr + "/" + record.ShortenedPath})
 	}
 }
 
@@ -130,6 +134,7 @@ func BatchCreateShortenedURLHandler(
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		records := make([]models.Record, 0)
+		encoder := json.NewEncoder(w)
 		err := json.NewDecoder(r.Body).Decode(&records)
 		if err != nil {
 			http.Error(
@@ -140,35 +145,14 @@ func BatchCreateShortenedURLHandler(
 			return
 		}
 
-		for i := range records {
-			shortenedPath, err := s.GetShortenedPath(context.Background(), records[i].OriginalURL)
-			if errors.Is(err, storage.ErrNotFound) {
-				shortenedPath, err = rndGen.Call(8)
-				if err != nil {
-					http.Error(
-						w,
-						fmt.Sprintf("failed to parse request body: %s", err.Error()),
-						http.StatusBadRequest,
-					)
-					return
-				}
-				records[i].ShortenedPath = shortenedPath
-			}
-			records[i].ShortenedPath = shortenedPath
-		}
-
-		err = s.BatchSave(context.Background(), records)
+		err = services.BatchCreate(records, 8, rndGen, s)
 		if err != nil {
-			http.Error(
-				w,
-				fmt.Sprintf("failed to parse request body: %s", err.Error()),
-				http.StatusBadRequest,
-			)
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			encoder.Encode(err.Error())
 			return
 		}
 
 		w.WriteHeader(http.StatusCreated)
-
 		response := make([]map[string]string, len(records))
 		for i := range records {
 			response[i] = map[string]string{
@@ -176,7 +160,6 @@ func BatchCreateShortenedURLHandler(
 				"short_url":      config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
 			}
 		}
-		encoder := json.NewEncoder(w)
 		w.WriteHeader(http.StatusCreated)
 		encoder.Encode(response)
 	}

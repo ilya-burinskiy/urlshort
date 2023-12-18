@@ -23,21 +23,24 @@ func main() {
 		panic(err)
 	}
 
-	var s storage.Storage = storage.NewMapStorage()
-	var fs *storage.FileStorage
-	if config.DatabaseDSN != "" {
+	var s storage.Storage
+	if config.UseDBStorage() {
 		var err error
 		s, err = storage.NewDBStorage(config.DatabaseDSN)
 		if err != nil {
 			panic(err)
 		}
-	} else if config.FileStoragePath != "" {
-		fs = storage.NewFileStorage(config.FileStoragePath)
+	} else if config.UseFileStorage() {
+		fs := storage.NewFileStorage(config.FileStoragePath)
+		s = storage.NewMapStorage(fs)
 		err := fs.Restore(s.(storage.MapStorage))
 		if err != nil {
 			panic(err)
 		}
-		go services.StorageDumper(s.(storage.MapStorage), *fs, 5*time.Second)
+
+		go services.StorageDumper(s.(storage.MapStorage), 5*time.Second)
+	} else {
+		s = storage.NewMapStorage(nil)
 	}
 
 	server := http.Server{
@@ -46,7 +49,7 @@ func main() {
 	}
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
-	go onExit(exit, &server, fs, s)
+	go onExit(exit, &server, s)
 
 	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
@@ -55,15 +58,13 @@ func main() {
 
 }
 
-func onExit(exit <-chan os.Signal, server *http.Server, fs *storage.FileStorage, s storage.Storage) {
+func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 	<-exit
 	switch s := s.(type) {
 	case storage.MapStorage:
-		if fs != nil {
-			err := fs.Dump(s)
-			if err != nil {
-				logger.Log.Info("on exit error", zap.String("err", err.Error()))
-			}
+		err := s.Dump()
+		if err != nil {
+			logger.Log.Info("on exit error", zap.String("err", err.Error()))
 		}
 	case *storage.DBStorage:
 		s.Close()
