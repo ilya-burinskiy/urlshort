@@ -6,28 +6,25 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
-	"go.uber.org/zap"
 )
 
 func main() {
 	config := configs.Parse()
 	rndGen := services.StdRandHexStringGenerator{}
-
-	storage := storage.New(config.FileStoragePath)
-	err := storage.Load()
-	if err != nil {
+	if err := logger.Initialize("info"); err != nil {
 		panic(err)
 	}
-	go services.StorageDumper(storage, 5*time.Second)
 
-	if err := logger.Initialize("info"); err != nil {
+	persistentStorage := storage.ConfigurePersistentStorage(config)
+	storage := storage.NewMapStorage(persistentStorage)
+	err := storage.Restore()
+	if err != nil {
 		panic(err)
 	}
 
@@ -45,11 +42,7 @@ func main() {
 	}
 }
 
-func onExit(exit <-chan os.Signal, server *http.Server, storage storage.Storage) {
+func onExit(exit <-chan os.Signal, server *http.Server, storage storage.MapStorage) {
 	<-exit
-	err := storage.Dump()
-	if err != nil {
-		logger.Log.Info("dump error", zap.String("msg", err.Error()))
-	}
 	server.Shutdown(context.TODO())
 }

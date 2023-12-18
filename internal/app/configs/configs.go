@@ -9,6 +9,7 @@ type Config struct {
 	ServerAddress        string
 	ShortenedURLBaseAddr string
 	FileStoragePath      string
+	DatabaseDSN          string
 }
 
 func Parse() Config {
@@ -18,11 +19,8 @@ func Parse() Config {
 		&config.ShortenedURLBaseAddr,
 		"b", "http://localhost:8080",
 		"base address of the resulting shortened URL")
-	flag.StringVar(
-		&config.FileStoragePath,
-		"f", "../../storage",
-		"file storage path",
-	)
+	flag.StringVar(&config.FileStoragePath, "f", "", "file storage path")
+	flag.StringVar(&config.DatabaseDSN, "d", "", "database URL")
 	flag.Parse()
 
 	if envServerAddress := os.Getenv("SERVER_ADDRESS"); envServerAddress != "" {
@@ -33,6 +31,9 @@ func Parse() Config {
 	}
 	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
 		config.FileStoragePath = envFileStoragePath
+	}
+	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
+		config.DatabaseDSN = envDatabaseDSN
 	}
 
 	return config

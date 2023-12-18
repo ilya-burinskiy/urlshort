@@ -39,7 +39,8 @@ var defaultConfig = configs.Config{
 
 func TestCreateShortenedURLHandler(t *testing.T) {
 	generatorMock := new(mockRandHexStringGenerator)
-	storage := storage.New(defaultConfig.FileStoragePath)
+	persistentStorage := storage.NewFileStorage(defaultConfig.FileStoragePath)
+	storage := storage.NewMapStorage(persistentStorage)
 	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storage))
 	defer testServer.Close()
 
@@ -139,7 +140,8 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 
 func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 	generatorMock := new(mockRandHexStringGenerator)
-	storage := storage.New(defaultConfig.FileStoragePath)
+	persistentStorage := storage.NewFileStorage(defaultConfig.FileStoragePath)
+	storage := storage.NewMapStorage(persistentStorage)
 	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storage))
 	defer testServer.Close()
 
@@ -263,7 +265,8 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 
 func TestGetShortenedURLHandler(t *testing.T) {
 	generatorMock := new(mockRandHexStringGenerator)
-	storage := storage.New(defaultConfig.FileStoragePath)
+	persistentStorage := storage.NewFileStorage(defaultConfig.FileStoragePath)
+	storage := storage.NewMapStorage(persistentStorage)
 	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storage))
 	defer testServer.Close()
 
@@ -316,12 +319,10 @@ func TestGetShortenedURLHandler(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			for origURL, shortenedPath := range tc.existingURLs {
-				err := storage.Put(origURL, shortenedPath)
-				require.NoError(t, err)
+				storage.Put(origURL, shortenedPath)
 			}
 			defer func() {
-				err := storage.Clear()
-				require.NoError(t, err)
+				storage.Clear()
 			}()
 
 			request, err := http.NewRequest(
