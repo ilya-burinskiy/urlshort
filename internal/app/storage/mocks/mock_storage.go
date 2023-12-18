@@ -49,6 +49,21 @@ func (mr *MockStorageMockRecorder) BatchSave(arg0, arg1 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchSave", reflect.TypeOf((*MockStorage)(nil).BatchSave), arg0, arg1)
 }
 
+// CreateUser mocks base method.
+func (m *MockStorage) CreateUser(arg0 context.Context) (models.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateUser", arg0)
+	ret0, _ := ret[0].(models.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateUser indicates an expected call of CreateUser.
+func (mr *MockStorageMockRecorder) CreateUser(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUser", reflect.TypeOf((*MockStorage)(nil).CreateUser), arg0)
+}
+
 // FindByOriginalURL mocks base method.
 func (m *MockStorage) FindByOriginalURL(arg0 context.Context, arg1 string) (models.Record, error) {
 	m.ctrl.T.Helper()

@@ -125,6 +125,17 @@ func (db *DBStorage) BatchSave(ctx context.Context, records []models.Record) err
 	return tx.Commit(ctx)
 }
 
+func (db *DBStorage) CreateUser(ctx context.Context) (models.User, error) {
+	row := db.pool.QueryRow(ctx, `INSERT INTO "users" ("id") VALUES (DEFAULT) RETURNING "id"`)
+	user := models.User{}
+	err := row.Scan(&user.ID)
+	if err != nil {
+		return user, fmt.Errorf("failed to create user: %s", err.Error())
+	}
+
+	return user, nil
+}
+
 func (db *DBStorage) Close() {
 	db.pool.Close()
 }

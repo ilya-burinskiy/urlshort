@@ -41,7 +41,7 @@ func main() {
 func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 	<-exit
 	switch s := s.(type) {
-	case storage.MapStorage:
+	case *storage.MapStorage:
 		err := s.Dump()
 		if err != nil {
 			logger.Log.Info("on exit error", zap.String("err", err.Error()))
@@ -64,12 +64,12 @@ func configureURLStorage(config configs.Config) storage.Storage {
 	} else if config.UseFileStorage() {
 		fs := storage.NewFileStorage(config.FileStoragePath)
 		urlsStorage = storage.NewMapStorage(fs)
-		err := fs.Restore(urlsStorage.(storage.MapStorage))
+		err := fs.Restore(*urlsStorage.(*storage.MapStorage))
 		if err != nil {
 			panic(err)
 		}
 
-		go services.StorageDumper(urlsStorage.(storage.MapStorage), 5*time.Second)
+		go services.StorageDumper(*urlsStorage.(*storage.MapStorage), 5*time.Second)
 	} else {
 		urlsStorage = storage.NewMapStorage(nil)
 	}

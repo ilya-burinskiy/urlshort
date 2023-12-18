@@ -27,4 +27,6 @@ type Storage interface {
 	FindByShortenedPath(ctx context.Context, shortenedPath string) (models.Record, error)
 	Save(ctx context.Context, record models.Record) error
 	BatchSave(ctx context.Context, records []models.Record) error
+
+	CreateUser(ctx context.Context) (models.User, error)
 }
