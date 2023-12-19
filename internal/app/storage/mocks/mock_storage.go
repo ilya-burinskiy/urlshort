@@ -94,6 +94,21 @@ func (mr *MockStorageMockRecorder) FindByShortenedPath(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByShortenedPath", reflect.TypeOf((*MockStorage)(nil).FindByShortenedPath), arg0, arg1)
 }
 
+// FindByUser mocks base method.
+func (m *MockStorage) FindByUser(arg0 context.Context, arg1 models.User) ([]models.Record, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindByUser", arg0, arg1)
+	ret0, _ := ret[0].([]models.Record)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindByUser indicates an expected call of FindByUser.
+func (mr *MockStorageMockRecorder) FindByUser(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByUser", reflect.TypeOf((*MockStorage)(nil).FindByUser), arg0, arg1)
+}
+
 // Save mocks base method.
 func (m *MockStorage) Save(arg0 context.Context, arg1 models.Record) error {
 	m.ctrl.T.Helper()

@@ -52,6 +52,22 @@ func (ms *MapStorage) FindByShortenedPath(ctx context.Context, searchedShortened
 	return models.Record{}, ErrNotFound
 }
 
+func (ms *MapStorage) FindByUser(ctx context.Context, user models.User) ([]models.Record, error) {
+	result := make([]models.Record, 0)
+	for origURL, l := range ms.m {
+		if l.UserID == user.ID {
+			result = append(result, models.Record{
+				OriginalURL:   origURL,
+				ShortenedPath: l.ShortenedPath,
+				CorrelationID: l.CorrelationID,
+				UserID:        l.UserID,
+			})
+		}
+	}
+
+	return result, nil
+}
+
 func (ms *MapStorage) Save(ctx context.Context, r models.Record) error {
 	_, ok := ms.m[r.OriginalURL]
 	if ok {
@@ -61,7 +77,7 @@ func (ms *MapStorage) Save(ctx context.Context, r models.Record) error {
 	ms.m[r.OriginalURL] = link{
 		ShortenedPath: r.ShortenedPath,
 		CorrelationID: r.CorrelationID,
-		UserID: r.UserID,
+		UserID:        r.UserID,
 	}
 	return nil
 }
@@ -71,7 +87,7 @@ func (ms *MapStorage) BatchSave(ctx context.Context, records []models.Record) er
 		ms.m[record.OriginalURL] = link{
 			ShortenedPath: record.ShortenedPath,
 			CorrelationID: record.CorrelationID,
-			UserID: record.UserID,
+			UserID:        record.UserID,
 		}
 	}
 	return nil

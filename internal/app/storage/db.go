@@ -84,6 +84,37 @@ func (db *DBStorage) FindByShortenedPath(ctx context.Context, shortenedPath stri
 	}, nil
 }
 
+func (db *DBStorage) FindByUser(ctx context.Context, user models.User) ([]models.Record, error) {
+	rows, err := db.pool.Query(
+		ctx,
+		`SELECT "original_url", "shortened_path", "correlation_id", "user_id"
+		 FROM "urls"
+		 WHERE "user_id" = @userID`,
+		pgx.NamedArgs{"user_id": user.ID},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch records: %s", err.Error())
+	}
+
+	result, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (models.Record, error) {
+		var originalURL, shortenedPath, correlationID string
+		var userID int
+		err := row.Scan(&originalURL, &shortenedPath, &correlationID, &userID)
+
+		return models.Record{
+			OriginalURL:   originalURL,
+			ShortenedPath: shortenedPath,
+			CorrelationID: correlationID,
+			UserID:        userID,
+		}, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch records: %s", err.Error())
+	}
+
+	return result, nil
+}
+
 func (db *DBStorage) Save(ctx context.Context, record models.Record) error {
 	_, err := db.pool.Exec(
 		ctx,
