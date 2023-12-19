@@ -51,6 +51,10 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		Save(gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return(nil)
+	storageMock.EXPECT().
+		CreateUser(gomock.Any()).
+		AnyTimes().
+		Return(models.User{ID: 1}, nil)
 
 	generatorMock := new(mockRandHexStringGenerator)
 	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
@@ -160,6 +164,10 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 		Save(gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return(nil)
+	storageMock.EXPECT().
+		CreateUser(gomock.Any()).
+		AnyTimes().
+		Return(models.User{ID: 1}, nil)
 
 	generatorMock := new(mockRandHexStringGenerator)
 	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
@@ -285,6 +293,10 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 func TestGetShortenedURLHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	storageMock := mocks.NewMockStorage(ctrl)
+	storageMock.EXPECT().
+		CreateUser(gomock.Any()).
+		AnyTimes().
+		Return(models.User{ID: 1}, nil)
 	gomock.InOrder(
 		storageMock.EXPECT().
 			FindByShortenedPath(gomock.Any(), gomock.Any()).
