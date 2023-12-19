@@ -133,11 +133,8 @@ func (h handlers) batchCreateFromJSON(w http.ResponseWriter, r *http.Request) {
 	encoder := json.NewEncoder(w)
 	err := json.NewDecoder(r.Body).Decode(&records)
 	if err != nil {
-		http.Error(
-			w,
-			fmt.Sprintf("failed to parse request body: %s", err.Error()),
-			http.StatusBadRequest,
-		)
+		w.WriteHeader(http.StatusBadRequest)
+		encoder.Encode(fmt.Sprintf("failed to parse request body: %s", err.Error()))
 		return
 	}
 
