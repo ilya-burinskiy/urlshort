@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
@@ -209,7 +210,7 @@ func (h handlers) getUser(r *http.Request) (models.User, error) {
 
 	claims := &models.Claims{}
 	token, err := jwt.ParseWithClaims(cookie.Value, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(middlewares.SecretKey), nil
+		return []byte(auth.SecretKey), nil
 	})
 	if err != nil || !token.Valid {
 		return models.User{}, err

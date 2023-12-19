@@ -1,7 +1,6 @@
 package middlewares
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,15 +8,13 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/compress"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"go.uber.org/zap"
 )
-
-const TokenExp = time.Hour * 3
-const SecretKey = "secret"
 
 func GzipCompress(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +92,7 @@ func CookieAuth(s storage.Storage) func(h http.HandlerFunc) http.HandlerFunc {
 
 			claims := &models.Claims{}
 			token, err := jwt.ParseWithClaims(cookie.Value, claims, func(token *jwt.Token) (interface{}, error) {
-				return []byte(SecretKey), nil
+				return []byte(auth.SecretKey), nil
 			})
 			if err != nil || !token.Valid {
 				cookie, err := generateCookie(s)
@@ -112,7 +109,7 @@ func CookieAuth(s storage.Storage) func(h http.HandlerFunc) http.HandlerFunc {
 }
 
 func generateCookie(s storage.Storage) (*http.Cookie, error) {
-	token, err := buildJWTString(s)
+	token, err := auth.BuildJWTString(s)
 	if err != nil {
 		return nil, fmt.Errorf("could not generate cookie: %s", err.Error())
 	}
@@ -120,31 +117,10 @@ func generateCookie(s storage.Storage) (*http.Cookie, error) {
 	return &http.Cookie{
 		Name:     "jwt",
 		Value:    token,
-		MaxAge:   int(TokenExp / time.Second),
+		MaxAge:   int(auth.TokenExp / time.Second),
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	}, nil
-}
-
-func buildJWTString(s storage.Storage) (string, error) {
-	user, err := s.CreateUser(context.Background())
-	if err != nil {
-		return "", err
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, models.Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExp)),
-		},
-		UserID: user.ID,
-	})
-
-	tokenString, err := token.SignedString([]byte(SecretKey))
-	if err != nil {
-		return "", err
-	}
-
-	return tokenString, nil
 }
