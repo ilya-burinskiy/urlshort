@@ -90,7 +90,7 @@ func (db *DBStorage) FindByUser(ctx context.Context, user models.User) ([]models
 		`SELECT "original_url", "shortened_path", "correlation_id", "user_id"
 		 FROM "urls"
 		 WHERE "user_id" = @userID`,
-		pgx.NamedArgs{"user_id": user.ID},
+		pgx.NamedArgs{"userID": user.ID},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch records: %s", err.Error())
