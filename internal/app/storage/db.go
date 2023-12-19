@@ -147,7 +147,7 @@ func (db *DBStorage) BatchSave(ctx context.Context, records []models.Record) err
 	for _, r := range records {
 		_, err := tx.Exec(
 			ctx,
-			`INSERT INTO "urls" ("original_url", "shortened_path") VALUES (@originalURL, @shortenedPath, @user_id)
+			`INSERT INTO "urls" ("original_url", "shortened_path", "user_id") VALUES (@originalURL, @shortenedPath, @user_id)
 			 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = @shortenedPath`,
 			pgx.NamedArgs{
 				"originalURL":   r.OriginalURL,
