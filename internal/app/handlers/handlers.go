@@ -47,6 +47,7 @@ func ShortenURLRouter(
 		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
 		router.Post("/api/shorten", handlers.createFromJSON)
 		router.Post("/api/shorten/batch", handlers.batchCreateFromJSON)
+		router.Get("/api/user/urls", handlers.getUserURLs)
 	})
 
 	return router
@@ -157,6 +158,37 @@ func (h handlers) batchCreateFromJSON(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusCreated)
+	encoder.Encode(response)
+}
+
+func (h handlers) getUserURLs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	user, err := h.getUser(r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	records, err := h.s.FindByUser(r.Context(), user)
+	encoder := json.NewEncoder(w)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		encoder.Encode(fmt.Sprintf("failed to fetch records: %s", err.Error()))
+		return
+	}
+
+	if len(records) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	response := make([]map[string]string, len(records))
+	for i := range records {
+		response[i] = map[string]string{
+			"short_url":    h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
+			"original_url": records[i].OriginalURL,
+		}
+	}
 	encoder.Encode(response)
 }
 
