@@ -15,6 +15,7 @@ type MapStorage struct {
 type link struct {
 	ShortenedPath string `json:"shortened_path"`
 	CorrelationID string `json:"correlation_id"`
+	UserID        int    `json:"user_id"`
 }
 
 func NewMapStorage(fs *FileStorage) *MapStorage {
@@ -60,6 +61,7 @@ func (ms *MapStorage) Save(ctx context.Context, r models.Record) error {
 	ms.m[r.OriginalURL] = link{
 		ShortenedPath: r.ShortenedPath,
 		CorrelationID: r.CorrelationID,
+		UserID: r.UserID,
 	}
 	return nil
 }
@@ -69,6 +71,7 @@ func (ms *MapStorage) BatchSave(ctx context.Context, records []models.Record) er
 		ms.m[record.OriginalURL] = link{
 			ShortenedPath: record.ShortenedPath,
 			CorrelationID: record.CorrelationID,
+			UserID: record.UserID,
 		}
 	}
 	return nil
@@ -91,7 +94,7 @@ func (ms *MapStorage) Dump() error {
 
 func (ms *MapStorage) Restore() error {
 	if ms.fs != nil {
-		return ms.fs.Restore(*ms)
+		return ms.fs.Restore(ms)
 	}
 
 	return nil

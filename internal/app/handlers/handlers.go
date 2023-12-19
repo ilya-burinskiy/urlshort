@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
@@ -21,18 +22,19 @@ import (
 func ShortenURLRouter(
 	config configs.Config,
 	rndGen services.RandHexStringGenerator,
-	urlsStorage storage.Storage) chi.Router {
+	s storage.Storage) chi.Router {
 
 	router := chi.NewRouter()
 	handlers := handlers{
-		config:      config,
-		rndGen:      rndGen,
-		urlsStorage: urlsStorage,
+		config: config,
+		rndGen: rndGen,
+		s:      s,
 	}
 	router.Use(
 		handlerFunc2Handler(middlewares.ResponseLogger),
 		handlerFunc2Handler(middlewares.RequestLogger),
 		handlerFunc2Handler(middlewares.GzipCompress),
+		handlerFunc2Handler(middlewares.CookieAuth(s)),
 		middleware.AllowContentEncoding("gzip"),
 	)
 	router.Group(func(router chi.Router) {
@@ -51,14 +53,14 @@ func ShortenURLRouter(
 }
 
 type handlers struct {
-	config      configs.Config
-	rndGen      services.RandHexStringGenerator
-	urlsStorage storage.Storage
+	config configs.Config
+	rndGen services.RandHexStringGenerator
+	s      storage.Storage
 }
 
 func (h handlers) get(w http.ResponseWriter, r *http.Request) {
 	shortenedPath := chi.URLParam(r, "id")
-	record, err := h.urlsStorage.FindByShortenedPath(context.Background(), shortenedPath)
+	record, err := h.s.FindByShortenedPath(context.Background(), shortenedPath)
 	if errors.Is(err, storage.ErrNotFound) {
 		http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
 		return
@@ -68,6 +70,7 @@ func (h handlers) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h handlers) create(w http.ResponseWriter, r *http.Request) {
+	user, _ := h.getUser(r)
 	bytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
@@ -75,7 +78,7 @@ func (h handlers) create(w http.ResponseWriter, r *http.Request) {
 	}
 	originalURL := string(bytes)
 
-	record, err := services.Create(originalURL, 8, h.rndGen, h.urlsStorage)
+	record, err := services.Create(originalURL, 8, h.rndGen, h.s, user)
 	if err != nil {
 		var notUniqErr *storage.ErrNotUnique
 		if errors.As(err, &notUniqErr) {
@@ -101,8 +104,9 @@ func (h handlers) createFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, _ := h.getUser(r)
 	originalURL := requestBody["url"]
-	record, err := services.Create(originalURL, 8, h.rndGen, h.urlsStorage)
+	record, err := services.Create(originalURL, 8, h.rndGen, h.s, user)
 	if err != nil {
 		var notUniqErr *storage.ErrNotUnique
 		if errors.As(err, &notUniqErr) {
@@ -136,7 +140,8 @@ func (h handlers) batchCreateFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = services.BatchCreate(records, 8, h.rndGen, h.urlsStorage)
+	user, _ := h.getUser(r)
+	err = services.BatchCreate(records, 8, h.rndGen, h.s, user)
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		encoder.Encode(err.Error())
@@ -165,6 +170,23 @@ func (h handlers) pingDB(w http.ResponseWriter, r *http.Request) {
 
 	defer conn.Close(context.Background())
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h handlers) getUser(r *http.Request) (models.User, error) {
+	cookie, err := r.Cookie("jwt")
+	if err != nil {
+		return models.User{}, err
+	}
+
+	claims := &models.Claims{}
+	token, err := jwt.ParseWithClaims(cookie.Value, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(middlewares.SECRET_KEY), nil
+	})
+	if err != nil || !token.Valid {
+		return models.User{}, err
+	}
+
+	return models.User{ID: claims.UserID}, nil
 }
 
 func handlerFunc2Handler(f func(http.HandlerFunc) http.HandlerFunc) func(http.Handler) http.Handler {

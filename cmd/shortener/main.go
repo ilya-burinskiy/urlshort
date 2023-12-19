@@ -64,7 +64,7 @@ func configureURLStorage(config configs.Config) storage.Storage {
 	} else if config.UseFileStorage() {
 		fs := storage.NewFileStorage(config.FileStoragePath)
 		urlsStorage = storage.NewMapStorage(fs)
-		err := fs.Restore(*urlsStorage.(*storage.MapStorage))
+		err := fs.Restore(urlsStorage.(*storage.MapStorage))
 		if err != nil {
 			panic(err)
 		}

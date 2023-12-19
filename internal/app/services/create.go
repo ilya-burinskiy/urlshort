@@ -18,6 +18,7 @@ func Create(
 	pathLen int,
 	randGen RandHexStringGenerator,
 	s storage.Storage,
+	user models.User,
 ) (models.Record, error) {
 
 	record, err := s.FindByOriginalURL(context.Background(), originalURL)
@@ -28,7 +29,7 @@ func Create(
 				return models.Record{}, fmt.Errorf("failed to generate shortened path: %s", err.Error())
 			}
 
-			record = models.Record{OriginalURL: originalURL, ShortenedPath: shortenedPath}
+			record = models.Record{OriginalURL: originalURL, ShortenedPath: shortenedPath, UserID: user.ID}
 			err = s.Save(context.Background(), record)
 			if err != nil {
 				return models.Record{}, err
@@ -47,7 +48,8 @@ func BatchCreate(
 	records []models.Record,
 	pahtLen int,
 	rndGen RandHexStringGenerator,
-	s storage.Storage) error {
+	s storage.Storage,
+	user models.User) error {
 
 	for i := range records {
 		shortenedPath, err := rndGen.Call(8)
@@ -56,6 +58,7 @@ func BatchCreate(
 				records[i].OriginalURL, err.Error())
 		}
 		records[i].ShortenedPath = shortenedPath
+		records[i].UserID = user.ID
 	}
 
 	err := s.BatchSave(context.Background(), records)
