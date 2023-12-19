@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -35,7 +36,6 @@ func ShortenURLRouter(
 		handlerFunc2Handler(middlewares.ResponseLogger),
 		handlerFunc2Handler(middlewares.RequestLogger),
 		handlerFunc2Handler(middlewares.GzipCompress),
-		handlerFunc2Handler(middlewares.CookieAuth(s)),
 		middleware.AllowContentEncoding("gzip"),
 	)
 	router.Group(func(router chi.Router) {
@@ -72,7 +72,23 @@ func (h handlers) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h handlers) create(w http.ResponseWriter, r *http.Request) {
-	user, _ := h.getUser(r)
+	user, err := h.getUser(r)
+	if err != nil {
+		user, err = h.s.CreateUser(r.Context())
+		if err != nil {
+			http.Error(w, "failed to create user: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		token, err := auth.BuildJWTString(user)
+		if err != nil {
+			http.Error(w, "failed to build JWT string: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		setJWTCookie(w, token)
+	}
+
 	bytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
@@ -106,7 +122,24 @@ func (h handlers) createFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, _ := h.getUser(r)
+	user, err := h.getUser(r)
+	if err != nil {
+		user, err = h.s.CreateUser(r.Context())
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			encoder.Encode("failed to create user: " + err.Error())
+			return
+		}
+
+		token, err := auth.BuildJWTString(user)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			encoder.Encode("failed to build JWT string: " + err.Error())
+			return
+		}
+
+		setJWTCookie(w, token)
+	}
 	originalURL := requestBody["url"]
 	record, err := services.Create(originalURL, 8, h.rndGen, h.s, user)
 	if err != nil {
@@ -139,7 +172,24 @@ func (h handlers) batchCreateFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, _ := h.getUser(r)
+	user, err := h.getUser(r)
+	if err != nil {
+		user, err = h.s.CreateUser(r.Context())
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			encoder.Encode("failed to create user: " + err.Error())
+			return
+		}
+
+		token, err := auth.BuildJWTString(user)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			encoder.Encode("failed to build JWT string: " + err.Error())
+			return
+		}
+
+		setJWTCookie(w, token)
+	}
 	err = services.BatchCreate(records, 8, h.rndGen, h.s, user)
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -217,6 +267,20 @@ func (h handlers) getUser(r *http.Request) (models.User, error) {
 	}
 
 	return models.User{ID: claims.UserID}, nil
+}
+
+func setJWTCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(
+		w,
+		&http.Cookie{
+			Name:     "jwt",
+			Value:    token,
+			MaxAge:   int(auth.TokenExp / time.Second),
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		},
+	)
 }
 
 func handlerFunc2Handler(f func(http.HandlerFunc) http.HandlerFunc) func(http.Handler) http.Handler {
