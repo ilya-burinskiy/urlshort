@@ -16,8 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
-const TOKEN_EXP = time.Hour * 3
-const SECRET_KEY = "secret"
+const TokenExp = time.Hour * 3
+const SecretKey = "secret"
 
 func GzipCompress(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +95,7 @@ func CookieAuth(s storage.Storage) func(h http.HandlerFunc) http.HandlerFunc {
 
 			claims := &models.Claims{}
 			token, err := jwt.ParseWithClaims(cookie.Value, claims, func(token *jwt.Token) (interface{}, error) {
-				return []byte(SECRET_KEY), nil
+				return []byte(SecretKey), nil
 			})
 			if err != nil || !token.Valid {
 				cookie, err := generateCookie(s)
@@ -120,7 +120,7 @@ func generateCookie(s storage.Storage) (*http.Cookie, error) {
 	return &http.Cookie{
 		Name:     "jwt",
 		Value:    token,
-		MaxAge:   int(TOKEN_EXP / time.Second),
+		MaxAge:   int(TokenExp / time.Second),
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,
@@ -136,12 +136,12 @@ func buildJWTString(s storage.Storage) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, models.Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TOKEN_EXP)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExp)),
 		},
 		UserID: user.ID,
 	})
 
-	tokenString, err := token.SignedString([]byte(SECRET_KEY))
+	tokenString, err := token.SignedString([]byte(SecretKey))
 	if err != nil {
 		return "", err
 	}
