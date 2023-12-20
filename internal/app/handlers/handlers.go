@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
@@ -21,9 +24,14 @@ import (
 func ShortenURLRouter(
 	config configs.Config,
 	rndGen services.RandHexStringGenerator,
-	storage storage.Storage) chi.Router {
+	s storage.Storage) chi.Router {
 
 	router := chi.NewRouter()
+	handlers := handlers{
+		config: config,
+		rndGen: rndGen,
+		s:      s,
+	}
 	router.Use(
 		handlerFunc2Handler(middlewares.ResponseLogger),
 		handlerFunc2Handler(middlewares.RequestLogger),
@@ -32,150 +40,245 @@ func ShortenURLRouter(
 	)
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("text/plain", "application/x-gzip"))
-		router.Post("/", CreateShortenedURLHandler(config, rndGen, storage))
-		router.Get("/{id}", GetShortenedURLHandler(storage))
-		router.Get("/ping", PingDB(config.DatabaseDSN))
+		router.Post("/", handlers.create)
+		router.Get("/{id}", handlers.get)
+		router.Get("/ping", handlers.pingDB)
 	})
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
-		router.Post("/api/shorten", CreateShortenedURLFromJSONHandler(config, rndGen, storage))
-		router.Post("/api/shorten/batch", BatchCreateShortenedURLHandler(config, rndGen, storage))
+		router.Post("/api/shorten", handlers.createFromJSON)
+		router.Post("/api/shorten/batch", handlers.batchCreateFromJSON)
+		router.Get("/api/user/urls", handlers.getUserURLs)
 	})
 
 	return router
 }
 
-func GetShortenedURLHandler(s storage.Storage) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		shortenedPath := chi.URLParam(r, "id")
-		record, err := s.FindByShortenedPath(context.Background(), shortenedPath)
-		if errors.Is(err, storage.ErrNotFound) {
-			http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
-			return
-		}
-		http.RedirectHandler(record.OriginalURL, http.StatusTemporaryRedirect).
-			ServeHTTP(w, r)
-	}
+type handlers struct {
+	config configs.Config
+	rndGen services.RandHexStringGenerator
+	s      storage.Storage
 }
 
-func CreateShortenedURLHandler(
-	config configs.Config,
-	rndGen services.RandHexStringGenerator,
-	s storage.Storage) http.HandlerFunc {
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		bytes, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-			return
-		}
-		originalURL := string(bytes)
-
-		record, err := services.Create(originalURL, 8, rndGen, s)
-		if err != nil {
-			var notUniqErr *storage.ErrNotUnique
-			if errors.As(err, &notUniqErr) {
-				w.WriteHeader(http.StatusConflict)
-				w.Write([]byte(config.ShortenedURLBaseAddr + "/" + notUniqErr.Record.ShortenedPath))
-				return
-			}
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-			return
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(config.ShortenedURLBaseAddr + "/" + record.ShortenedPath))
+func (h handlers) get(w http.ResponseWriter, r *http.Request) {
+	shortenedPath := chi.URLParam(r, "id")
+	record, err := h.s.FindByShortenedPath(context.Background(), shortenedPath)
+	if errors.Is(err, storage.ErrNotFound) {
+		http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
+		return
 	}
+	http.RedirectHandler(record.OriginalURL, http.StatusTemporaryRedirect).
+		ServeHTTP(w, r)
 }
 
-func CreateShortenedURLFromJSONHandler(
-	config configs.Config,
-	rndGen services.RandHexStringGenerator,
-	s storage.Storage) http.HandlerFunc {
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		var requestBody map[string]string
-		encoder := json.NewEncoder(w)
-		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			encoder.Encode("invalid request")
-			return
-		}
-
-		originalURL := requestBody["url"]
-		record, err := services.Create(originalURL, 8, rndGen, s)
+func (h handlers) create(w http.ResponseWriter, r *http.Request) {
+	user, err := h.getUser(r)
+	if err != nil {
+		user, err = h.s.CreateUser(r.Context())
 		if err != nil {
-			var notUniqErr *storage.ErrNotUnique
-			if errors.As(err, &notUniqErr) {
-				w.WriteHeader(http.StatusConflict)
-				encoder.Encode(
-					map[string]string{"result": config.ShortenedURLBaseAddr + "/" +
-						notUniqErr.Record.ShortenedPath},
-				)
-				return
-			}
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			encoder.Encode("could not create shortened URL")
+			http.Error(w, "failed to create user: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		w.WriteHeader(http.StatusCreated)
-		encoder.Encode(map[string]string{"result": config.ShortenedURLBaseAddr + "/" + record.ShortenedPath})
+		token, err := auth.BuildJWTString(user)
+		if err != nil {
+			http.Error(w, "failed to build JWT string: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		setJWTCookie(w, token)
 	}
+
+	bytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	originalURL := string(bytes)
+
+	record, err := services.Create(originalURL, 8, h.rndGen, h.s, user)
+	if err != nil {
+		var notUniqErr *storage.ErrNotUnique
+		if errors.As(err, &notUniqErr) {
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + notUniqErr.Record.ShortenedPath))
+			return
+		}
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath))
 }
 
-func BatchCreateShortenedURLHandler(
-	config configs.Config,
-	rndGen services.RandHexStringGenerator,
-	s storage.Storage,
-) http.HandlerFunc {
+func (h handlers) createFromJSON(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var requestBody map[string]string
+	encoder := json.NewEncoder(w)
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		encoder.Encode("invalid request")
+		return
+	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		records := make([]models.Record, 0)
-		encoder := json.NewEncoder(w)
-		err := json.NewDecoder(r.Body).Decode(&records)
+	user, err := h.getUser(r)
+	if err != nil {
+		user, err = h.s.CreateUser(r.Context())
 		if err != nil {
-			http.Error(
-				w,
-				fmt.Sprintf("failed to parse request body: %s", err.Error()),
-				http.StatusBadRequest,
+			w.WriteHeader(http.StatusInternalServerError)
+			encoder.Encode("failed to create user: " + err.Error())
+			return
+		}
+
+		token, err := auth.BuildJWTString(user)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			encoder.Encode("failed to build JWT string: " + err.Error())
+			return
+		}
+
+		setJWTCookie(w, token)
+	}
+	originalURL := requestBody["url"]
+	record, err := services.Create(originalURL, 8, h.rndGen, h.s, user)
+	if err != nil {
+		var notUniqErr *storage.ErrNotUnique
+		if errors.As(err, &notUniqErr) {
+			w.WriteHeader(http.StatusConflict)
+			encoder.Encode(
+				map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" +
+					notUniqErr.Record.ShortenedPath},
 			)
 			return
 		}
-
-		err = services.BatchCreate(records, 8, rndGen, s)
-		if err != nil {
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			encoder.Encode(err.Error())
-			return
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		response := make([]map[string]string, len(records))
-		for i := range records {
-			response[i] = map[string]string{
-				"correlation_id": records[i].CorrelationID,
-				"short_url":      config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
-			}
-		}
-		w.WriteHeader(http.StatusCreated)
-		encoder.Encode(response)
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		encoder.Encode("could not create shortened URL")
+		return
 	}
+
+	w.WriteHeader(http.StatusCreated)
+	encoder.Encode(map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath})
 }
 
-func PingDB(databaseDSN string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := pgx.Connect(context.Background(), databaseDSN)
+func (h handlers) batchCreateFromJSON(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	records := make([]models.Record, 0)
+	encoder := json.NewEncoder(w)
+	err := json.NewDecoder(r.Body).Decode(&records)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		encoder.Encode(fmt.Sprintf("failed to parse request body: %s", err.Error()))
+		return
+	}
+
+	user, err := h.getUser(r)
+	if err != nil {
+		user, err = h.s.CreateUser(r.Context())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			encoder.Encode("failed to create user: " + err.Error())
 			return
 		}
-		defer conn.Close(context.Background())
-		w.WriteHeader(http.StatusOK)
+
+		token, err := auth.BuildJWTString(user)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			encoder.Encode("failed to build JWT string: " + err.Error())
+			return
+		}
+
+		setJWTCookie(w, token)
 	}
+	err = services.BatchCreate(records, 8, h.rndGen, h.s, user)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		encoder.Encode(err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	response := make([]map[string]string, len(records))
+	for i := range records {
+		response[i] = map[string]string{
+			"correlation_id": records[i].CorrelationID,
+			"short_url":      h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
+		}
+	}
+	w.WriteHeader(http.StatusCreated)
+	encoder.Encode(response)
+}
+
+func (h handlers) getUserURLs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	user, err := h.getUser(r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	records, err := h.s.FindByUser(r.Context(), user)
+	encoder := json.NewEncoder(w)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		encoder.Encode(fmt.Sprintf("failed to fetch records: %s", err.Error()))
+		return
+	}
+
+	if len(records) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	response := make([]map[string]string, len(records))
+	for i := range records {
+		response[i] = map[string]string{
+			"short_url":    h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
+			"original_url": records[i].OriginalURL,
+		}
+	}
+	encoder.Encode(response)
+}
+
+func (h handlers) pingDB(w http.ResponseWriter, r *http.Request) {
+	conn, err := pgx.Connect(context.Background(), h.config.DatabaseDSN)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	defer conn.Close(context.Background())
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h handlers) getUser(r *http.Request) (models.User, error) {
+	cookie, err := r.Cookie("jwt")
+	if err != nil {
+		return models.User{}, err
+	}
+
+	claims := &models.Claims{}
+	token, err := jwt.ParseWithClaims(cookie.Value, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(auth.SecretKey), nil
+	})
+	if err != nil || !token.Valid {
+		return models.User{}, err
+	}
+
+	return models.User{ID: claims.UserID}, nil
+}
+
+func setJWTCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(
+		w,
+		&http.Cookie{
+			Name:     "jwt",
+			Value:    token,
+			MaxAge:   int(auth.TokenExp / time.Second),
+			HttpOnly: true,
+		},
+	)
 }
 
 func handlerFunc2Handler(f func(http.HandlerFunc) http.HandlerFunc) func(http.Handler) http.Handler {
