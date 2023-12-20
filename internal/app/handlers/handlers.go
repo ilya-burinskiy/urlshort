@@ -67,6 +67,12 @@ func (h handlers) get(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
 		return
 	}
+
+	if record.IsDeleted {
+		w.WriteHeader(http.StatusGone)
+		return
+	}
+
 	http.RedirectHandler(record.OriginalURL, http.StatusTemporaryRedirect).
 		ServeHTTP(w, r)
 }
