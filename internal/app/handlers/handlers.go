@@ -277,8 +277,6 @@ func setJWTCookie(w http.ResponseWriter, token string) {
 			Value:    token,
 			MaxAge:   int(auth.TokenExp / time.Second),
 			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
 		},
 	)
 }
