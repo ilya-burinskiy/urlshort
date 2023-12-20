@@ -5,4 +5,5 @@ type Record struct {
 	ShortenedPath string `json:"shortened_path"`
 	CorrelationID string `json:"correlation_id"`
 	UserID        int    `json:"user_id"`
+	IsDeleted     bool   `json:"is_deleted"`
 }
