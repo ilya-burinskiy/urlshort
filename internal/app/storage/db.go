@@ -5,6 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -163,6 +164,21 @@ func (db *DBStorage) BatchSave(ctx context.Context, records []models.Record) err
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+func (db *DBStorage) BatchDelete(ctx context.Context, shortenedPaths []string, user models.User) error {
+	shortenedPathsParam := "{" + strings.Join(shortenedPaths, ",") + "}"
+	_, err := db.pool.Exec(
+		ctx,
+		`UPDATE "urls" SET is_deleted = TRUE
+		 WHERE user_id = @userID AND shortened_path = ANY(@shortenedPaths::varchar[])`,
+		pgx.NamedArgs{"userID": user.ID, "shortenedPaths": shortenedPathsParam},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to batch delete URLs: %s", err.Error())
+	}
+
+	return nil
 }
 
 func (db *DBStorage) CreateUser(ctx context.Context) (models.User, error) {

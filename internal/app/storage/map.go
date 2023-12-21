@@ -95,6 +95,23 @@ func (ms *MapStorage) BatchSave(ctx context.Context, records []models.Record) er
 	return nil
 }
 
+func (ms *MapStorage) BatchDelete(ctx context.Context, shortenedURLs []string, user models.User) error {
+	for _, short := range shortenedURLs {
+		origURL, l := ms.findByShortenedPath(short)
+		if l == nil || l.UserID != user.ID {
+			continue
+		}
+
+		ms.m[origURL] = link{
+			ShortenedPath: l.ShortenedPath,
+			CorrelationID: l.CorrelationID,
+			UserID:        l.UserID,
+			IsDeleted:     true,
+		}
+	}
+	return nil
+}
+
 func (ms *MapStorage) CreateUser(ctx context.Context) (models.User, error) {
 	id := ms.userID
 	ms.userID++
@@ -116,4 +133,14 @@ func (ms *MapStorage) Restore() error {
 	}
 
 	return nil
+}
+
+func (ms *MapStorage) findByShortenedPath(shortenedPath string) (string, *link) {
+	for origURL, l := range ms.m {
+		if l.ShortenedPath == shortenedPath {
+			return origURL, &l
+		}
+	}
+
+	return "", nil
 }

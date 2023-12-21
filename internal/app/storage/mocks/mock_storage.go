@@ -35,6 +35,20 @@ func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 	return m.recorder
 }
 
+// BatchDelete mocks base method.
+func (m *MockStorage) BatchDelete(arg0 context.Context, arg1 []string, arg2 models.User) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchDelete", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BatchDelete indicates an expected call of BatchDelete.
+func (mr *MockStorageMockRecorder) BatchDelete(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchDelete", reflect.TypeOf((*MockStorage)(nil).BatchDelete), arg0, arg1, arg2)
+}
+
 // BatchSave mocks base method.
 func (m *MockStorage) BatchSave(arg0 context.Context, arg1 []models.Record) error {
 	m.ctrl.T.Helper()
