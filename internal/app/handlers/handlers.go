@@ -49,6 +49,7 @@ func ShortenURLRouter(
 		router.Post("/api/shorten", handlers.createFromJSON)
 		router.Post("/api/shorten/batch", handlers.batchCreateFromJSON)
 		router.Get("/api/user/urls", handlers.getUserURLs)
+		router.Delete("/api/user/urls", handlers.deleteUserURLs)
 	})
 
 	return router
@@ -244,6 +245,32 @@ func (h handlers) getUserURLs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	encoder.Encode(response)
+}
+
+func (h handlers) deleteUserURLs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	encoder := json.NewEncoder(w)
+	var requestBody []string
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		encoder.Encode("invalid request body")
+		return
+	}
+
+	user, err := h.getUser(r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	err = h.s.BatchDelete(r.Context(), requestBody, user)
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		encoder.Encode(err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (h handlers) pingDB(w http.ResponseWriter, r *http.Request) {
