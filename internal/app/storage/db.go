@@ -63,12 +63,13 @@ func (db *DBStorage) FindByOriginalURL(ctx context.Context, originalURL string) 
 func (db *DBStorage) FindByShortenedPath(ctx context.Context, shortenedPath string) (models.Record, error) {
 	row := db.pool.QueryRow(
 		ctx,
-		`SELECT "original_url", "correlation_id"
+		`SELECT "original_url", "correlation_id", "is_deleted"
 		 FROM "urls" WHERE "shortened_path" = @shortenedPath`,
 		pgx.NamedArgs{"shortenedPath": shortenedPath},
 	)
 	var originalURL, correlationID string
-	err := row.Scan(&originalURL, &correlationID)
+	var isDeleted bool
+	err := row.Scan(&originalURL, &correlationID, &isDeleted)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.Record{}, ErrNotFound
@@ -81,6 +82,7 @@ func (db *DBStorage) FindByShortenedPath(ctx context.Context, shortenedPath stri
 		OriginalURL:   originalURL,
 		ShortenedPath: shortenedPath,
 		CorrelationID: correlationID,
+		IsDeleted:     isDeleted,
 	}, nil
 }
 

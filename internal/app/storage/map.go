@@ -47,6 +47,7 @@ func (ms *MapStorage) FindByShortenedPath(ctx context.Context, searchedShortened
 				OriginalURL:   originalURL,
 				ShortenedPath: l.ShortenedPath,
 				CorrelationID: l.CorrelationID,
+				IsDeleted:     l.IsDeleted,
 			}, nil
 		}
 	}
