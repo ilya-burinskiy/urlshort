@@ -37,6 +37,7 @@ func (fs *FileStorage) Restore(ms *MapStorage) error {
 			ShortenedPath: r.ShortenedPath,
 			CorrelationID: r.CorrelationID,
 			UserID:        r.UserID,
+			IsDeleted:     r.IsDeleted,
 		}
 		if r.UserID > maxUserID {
 			maxUserID = r.UserID
@@ -66,6 +67,7 @@ func (fs *FileStorage) Dump(ms MapStorage) error {
 			ShortenedPath: l.ShortenedPath,
 			CorrelationID: l.CorrelationID,
 			UserID:        l.UserID,
+			IsDeleted:     l.IsDeleted,
 		})
 	}
 	if err = file.Close(); err != nil {
