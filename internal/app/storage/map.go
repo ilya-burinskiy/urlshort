@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"sync"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 )
@@ -96,12 +97,18 @@ func (ms *MapStorage) BatchSave(ctx context.Context, records []models.Record) er
 }
 
 func (ms *MapStorage) BatchDelete(ctx context.Context, shortenedURLs []string, user models.User) error {
-	for _, short := range shortenedURLs {
-		origURL, l := ms.findByShortenedPath(short)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	worker := func(shortenURL string) {
+		defer mu.Unlock()
+		defer wg.Done()
+
+		origURL, l := ms.findByShortenedPath(shortenURL)
 		if l == nil || l.UserID != user.ID {
-			continue
+			return
 		}
 
+		mu.Lock()
 		ms.m[origURL] = link{
 			ShortenedPath: l.ShortenedPath,
 			CorrelationID: l.CorrelationID,
@@ -109,6 +116,13 @@ func (ms *MapStorage) BatchDelete(ctx context.Context, shortenedURLs []string, u
 			IsDeleted:     true,
 		}
 	}
+
+	for _, short := range shortenedURLs {
+		wg.Add(1)
+		go worker(short)
+	}
+
+	wg.Wait()
 	return nil
 }
 
