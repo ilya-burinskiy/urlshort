@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
+	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage/mocks"
 
@@ -57,7 +58,8 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		Return(models.User{ID: 1}, nil)
 
 	generatorMock := new(mockRandHexStringGenerator)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
+	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, storageMock))
 	defer testServer.Close()
 
 	type generatorCallResult struct {
@@ -170,7 +172,8 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 		Return(models.User{ID: 1}, nil)
 
 	generatorMock := new(mockRandHexStringGenerator)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
+	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, storageMock))
 	defer testServer.Close()
 
 	toJSON := func(v interface{}) string {
@@ -307,7 +310,8 @@ func TestGetShortenedURLHandler(t *testing.T) {
 	)
 
 	generatorMock := new(mockRandHexStringGenerator)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
+	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, storageMock))
 	defer testServer.Close()
 
 	testCases := []struct {

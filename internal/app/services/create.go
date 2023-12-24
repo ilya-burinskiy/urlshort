@@ -13,24 +13,31 @@ type RandHexStringGenerator interface {
 	Call(n int) (string, error)
 }
 
-func Create(
-	originalURL string,
-	pathLen int,
-	randGen RandHexStringGenerator,
-	s storage.Storage,
-	user models.User,
-) (models.Record, error) {
+type CreateURLService struct {
+	pathLen int
+	randGen RandHexStringGenerator
+	store   storage.Storage
+}
 
-	record, err := s.FindByOriginalURL(context.Background(), originalURL)
+func NewCreateURLService(pathLen int, randGen RandHexStringGenerator, store storage.Storage) CreateURLService {
+	return CreateURLService{
+		pathLen: pathLen,
+		randGen: randGen,
+		store:   store,
+	}
+}
+
+func (service CreateURLService) Create(originalURL string, user models.User) (models.Record, error) {
+	record, err := service.store.FindByOriginalURL(context.Background(), originalURL)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
-			shortenedPath, err := randGen.Call(pathLen)
+			shortenedPath, err := service.randGen.Call(service.pathLen)
 			if err != nil {
 				return models.Record{}, fmt.Errorf("failed to generate shortened path: %s", err.Error())
 			}
 
 			record = models.Record{OriginalURL: originalURL, ShortenedPath: shortenedPath, UserID: user.ID}
-			err = s.Save(context.Background(), record)
+			err = service.store.Save(context.Background(), record)
 			if err != nil {
 				return models.Record{}, err
 			}
@@ -44,15 +51,9 @@ func Create(
 	return models.Record{}, storage.NewErrNotUnique(record)
 }
 
-func BatchCreate(
-	records []models.Record,
-	pahtLen int,
-	rndGen RandHexStringGenerator,
-	s storage.Storage,
-	user models.User) error {
-
+func (service CreateURLService) BatchCreate(records []models.Record, user models.User) error {
 	for i := range records {
-		shortenedPath, err := rndGen.Call(8)
+		shortenedPath, err := service.randGen.Call(service.pathLen)
 		if err != nil {
 			return fmt.Errorf("failed to generate shortened path for \"%s\": %s",
 				records[i].OriginalURL, err.Error())
@@ -61,7 +62,7 @@ func BatchCreate(
 		records[i].UserID = user.ID
 	}
 
-	err := s.BatchSave(context.Background(), records)
+	err := service.store.BatchSave(context.Background(), records)
 	if err != nil {
 		return err
 	}

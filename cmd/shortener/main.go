@@ -18,19 +18,23 @@ import (
 
 func main() {
 	config := configs.Parse()
-	rndGen := services.StdRandHexStringGenerator{}
 	if err := logger.Initialize("info"); err != nil {
 		panic(err)
 	}
 
-	urlsStorage := configureURLStorage(config)
+	store := configureURLStorage(config)
+	urlCreateService := services.NewCreateURLService(
+		8,
+		services.StdRandHexStringGenerator{},
+		store,
+	)
 	server := http.Server{
-		Handler: handlers.ShortenURLRouter(config, rndGen, urlsStorage),
+		Handler: handlers.ShortenURLRouter(config, urlCreateService, store),
 		Addr:    config.ServerAddress,
 	}
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
-	go onExit(exit, &server, urlsStorage)
+	go onExit(exit, &server, store)
 
 	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
@@ -73,7 +77,6 @@ func configureURLStorage(config configs.Config) storage.Storage {
 	} else {
 		urlsStorage = storage.NewMapStorage(nil)
 	}
-
 
 	return urlsStorage
 }

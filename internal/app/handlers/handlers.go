@@ -23,14 +23,14 @@ import (
 
 func ShortenURLRouter(
 	config configs.Config,
-	rndGen services.RandHexStringGenerator,
+	urlCreateService services.CreateURLService,
 	s storage.Storage) chi.Router {
 
 	router := chi.NewRouter()
 	handlers := handlers{
-		config: config,
-		rndGen: rndGen,
-		s:      s,
+		config:           config,
+		urlCreateService: urlCreateService,
+		s:                s,
 	}
 	router.Use(
 		handlerFunc2Handler(middlewares.ResponseLogger),
@@ -56,9 +56,9 @@ func ShortenURLRouter(
 }
 
 type handlers struct {
-	config configs.Config
-	rndGen services.RandHexStringGenerator
-	s      storage.Storage
+	config           configs.Config
+	urlCreateService services.CreateURLService
+	s                storage.Storage
 }
 
 func (h handlers) get(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +103,7 @@ func (h handlers) create(w http.ResponseWriter, r *http.Request) {
 	}
 	originalURL := string(bytes)
 
-	record, err := services.Create(originalURL, 8, h.rndGen, h.s, user)
+	record, err := h.urlCreateService.Create(originalURL, user)
 	if err != nil {
 		var notUniqErr *storage.ErrNotUnique
 		if errors.As(err, &notUniqErr) {
@@ -148,7 +148,7 @@ func (h handlers) createFromJSON(w http.ResponseWriter, r *http.Request) {
 		setJWTCookie(w, token)
 	}
 	originalURL := requestBody["url"]
-	record, err := services.Create(originalURL, 8, h.rndGen, h.s, user)
+	record, err := h.urlCreateService.Create(originalURL, user)
 	if err != nil {
 		var notUniqErr *storage.ErrNotUnique
 		if errors.As(err, &notUniqErr) {
@@ -197,7 +197,7 @@ func (h handlers) batchCreateFromJSON(w http.ResponseWriter, r *http.Request) {
 
 		setJWTCookie(w, token)
 	}
-	err = services.BatchCreate(records, 8, h.rndGen, h.s, user)
+	err = h.urlCreateService.BatchCreate(records, user)
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		encoder.Encode(err.Error())
