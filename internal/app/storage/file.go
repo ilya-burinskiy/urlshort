@@ -17,7 +17,7 @@ func NewFileStorage(filePath string) *FileStorage {
 	return &FileStorage{filePath: filePath}
 }
 
-func (fs *FileStorage) Restore(ms *MapStorage) error {
+func (fs *FileStorage) Restore(ms MapStorage) error {
 	file, err := os.OpenFile(fs.filePath, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return fmt.Errorf("could not load data from file: %s", err)

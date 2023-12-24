@@ -143,7 +143,7 @@ func (ms *MapStorage) Dump() error {
 
 func (ms *MapStorage) Restore() error {
 	if ms.fs != nil {
-		return ms.fs.Restore(ms)
+		return ms.fs.Restore(*ms)
 	}
 
 	return nil
