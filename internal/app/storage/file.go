@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -17,7 +18,7 @@ func NewFileStorage(filePath string) *FileStorage {
 	return &FileStorage{filePath: filePath}
 }
 
-func (fs *FileStorage) Restore(ms MapStorage) error {
+func (fs *FileStorage) Restore(ms *MapStorage) error {
 	file, err := os.OpenFile(fs.filePath, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return fmt.Errorf("could not load data from file: %s", err)
@@ -33,12 +34,11 @@ func (fs *FileStorage) Restore(ms MapStorage) error {
 			continue
 		}
 
-		ms.m[r.OriginalURL] = link{
-			ShortenedPath: r.ShortenedPath,
-			CorrelationID: r.CorrelationID,
-			UserID:        r.UserID,
-			IsDeleted:     r.IsDeleted,
+		err = ms.Save(context.TODO(), r)
+		if err != nil {
+			continue
 		}
+
 		if r.UserID > maxUserID {
 			maxUserID = r.UserID
 		}
@@ -53,7 +53,7 @@ func (fs *FileStorage) Restore(ms MapStorage) error {
 	return scanner.Err()
 }
 
-func (fs *FileStorage) Dump(ms MapStorage) error {
+func (fs *FileStorage) Dump(ms *MapStorage) error {
 	file, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return fmt.Errorf("could not dump storage: %w", err)
@@ -61,14 +61,8 @@ func (fs *FileStorage) Dump(ms MapStorage) error {
 
 	encoder := json.NewEncoder(file)
 	// NOTE: maybe define some Iter method for MapStorage
-	for k, l := range ms.m {
-		encoder.Encode(models.Record{
-			OriginalURL:   k,
-			ShortenedPath: l.ShortenedPath,
-			CorrelationID: l.CorrelationID,
-			UserID:        l.UserID,
-			IsDeleted:     l.IsDeleted,
-		})
+	for _, r := range ms.records {
+		encoder.Encode(r)
 	}
 	if err = file.Close(); err != nil {
 		return fmt.Errorf("could not dump storage: %w", err)

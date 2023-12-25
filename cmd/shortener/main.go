@@ -58,25 +58,25 @@ func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 }
 
 func configureURLStorage(config configs.Config) storage.Storage {
-	var urlsStorage storage.Storage
+	var store storage.Storage
 	if config.UseDBStorage() {
 		var err error
-		urlsStorage, err = storage.NewDBStorage(config.DatabaseDSN)
+		store, err = storage.NewDBStorage(config.DatabaseDSN)
 		if err != nil {
 			panic(err)
 		}
 	} else if config.UseFileStorage() {
 		fs := storage.NewFileStorage(config.FileStoragePath)
-		urlsStorage = storage.NewMapStorage(fs)
-		err := fs.Restore(*urlsStorage.(*storage.MapStorage))
+		store = storage.NewMapStorage(fs)
+		err := fs.Restore(store.(*storage.MapStorage))
 		if err != nil {
 			panic(err)
 		}
-
-		go services.StorageDumper(*urlsStorage.(*storage.MapStorage), 5*time.Second)
+		dumper := services.NewStorageDumper(store.(*storage.MapStorage), 5*time.Second)
+		dumper.Start()
 	} else {
-		urlsStorage = storage.NewMapStorage(nil)
+		store = storage.NewMapStorage(nil)
 	}
 
-	return urlsStorage
+	return store
 }

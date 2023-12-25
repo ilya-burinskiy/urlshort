@@ -6,9 +6,23 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
-func StorageDumper(ms storage.MapStorage, timeout time.Duration) {
-	for {
-		ms.Dump()
-		time.Sleep(timeout)
+type StorageDumper struct {
+	ms      *storage.MapStorage
+	timeout time.Duration
+}
+
+func NewStorageDumper(ms *storage.MapStorage, timeout time.Duration) StorageDumper {
+	return StorageDumper{
+		ms:      ms,
+		timeout: timeout,
 	}
+}
+
+func (d StorageDumper) Start() {
+	go func() {
+		for {
+			d.ms.Dump()
+			time.Sleep(d.timeout)
+		}
+	}()
 }

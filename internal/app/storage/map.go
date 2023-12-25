@@ -8,89 +8,101 @@ import (
 )
 
 type MapStorage struct {
-	m      map[string]link
-	userID int
-	fs     *FileStorage
-}
-
-type link struct {
-	ShortenedPath string `json:"shortened_path"`
-	CorrelationID string `json:"correlation_id"`
-	UserID        int    `json:"user_id"`
-	IsDeleted     bool   `json:"is_deleted"`
+	records              []models.Record
+	indexOnOriginalURL   map[string]int
+	indexOnShortenedPath map[string]int
+	indexOnUserID        map[int]map[int]struct{}
+	userID               int
+	fs                   *FileStorage
 }
 
 func NewMapStorage(fs *FileStorage) *MapStorage {
 	return &MapStorage{
-		m:      make(map[string]link),
-		userID: 1,
-		fs:     fs,
+		records:              make([]models.Record, 0),
+		indexOnOriginalURL:   make(map[string]int),
+		indexOnShortenedPath: make(map[string]int),
+		indexOnUserID:        make(map[int]map[int]struct{}),
+		userID:               1,
+		fs:                   fs,
 	}
 }
 
 func (ms *MapStorage) FindByOriginalURL(ctx context.Context, originalURL string) (models.Record, error) {
-	l, ok := ms.m[originalURL]
+	idx, ok := ms.indexOnOriginalURL[originalURL]
 	if !ok {
 		return models.Record{}, ErrNotFound
 	}
 
-	return models.Record{
-		OriginalURL:   originalURL,
-		ShortenedPath: l.ShortenedPath,
-		CorrelationID: l.CorrelationID,
-	}, nil
+	return ms.records[idx], nil
 }
 
-func (ms *MapStorage) FindByShortenedPath(ctx context.Context, searchedShortenedPath string) (models.Record, error) {
-	for originalURL, l := range ms.m {
-		if l.ShortenedPath == searchedShortenedPath {
-			return models.Record{
-				OriginalURL:   originalURL,
-				ShortenedPath: l.ShortenedPath,
-				CorrelationID: l.CorrelationID,
-				IsDeleted:     l.IsDeleted,
-			}, nil
-		}
+func (ms *MapStorage) FindByShortenedPath(ctx context.Context, shortenedPath string) (models.Record, error) {
+	idx, ok := ms.indexOnShortenedPath[shortenedPath]
+	if !ok {
+		return models.Record{}, ErrNotFound
 	}
-	return models.Record{}, ErrNotFound
+
+	return ms.records[idx], nil
 }
 
 func (ms *MapStorage) FindByUser(ctx context.Context, user models.User) ([]models.Record, error) {
 	result := make([]models.Record, 0)
-	for origURL, l := range ms.m {
-		if l.UserID == user.ID {
-			result = append(result, models.Record{
-				OriginalURL:   origURL,
-				ShortenedPath: l.ShortenedPath,
-				CorrelationID: l.CorrelationID,
-				UserID:        l.UserID,
-			})
-		}
+	userRecordsIdx, ok := ms.indexOnUserID[user.ID]
+	if !ok {
+		return result, nil
+	}
+
+	for idx := range userRecordsIdx {
+		result = append(result, ms.records[idx])
 	}
 
 	return result, nil
 }
 
 func (ms *MapStorage) Save(ctx context.Context, r models.Record) error {
-	_, ok := ms.m[r.OriginalURL]
+	_, ok := ms.indexOnOriginalURL[r.OriginalURL]
 	if ok {
 		return NewErrNotUnique(r)
 	}
 
-	ms.m[r.OriginalURL] = link{
-		ShortenedPath: r.ShortenedPath,
-		CorrelationID: r.CorrelationID,
-		UserID:        r.UserID,
+	ms.records = append(ms.records, r)
+	idx := len(ms.records) - 1
+	ms.indexOnOriginalURL[r.OriginalURL] = idx
+	ms.indexOnShortenedPath[r.ShortenedPath] = idx
+	_, ok = ms.indexOnUserID[r.UserID]
+	if !ok {
+		ms.indexOnUserID[r.UserID] = make(map[int]struct{})
 	}
+	ms.indexOnUserID[r.UserID][idx] = struct{}{}
+
 	return nil
 }
 
 func (ms *MapStorage) BatchSave(ctx context.Context, records []models.Record) error {
-	for _, record := range records {
-		ms.m[record.OriginalURL] = link{
-			ShortenedPath: record.ShortenedPath,
-			CorrelationID: record.CorrelationID,
-			UserID:        record.UserID,
+	for _, r := range records {
+		idx, ok := ms.indexOnOriginalURL[r.OriginalURL]
+		if ok {
+			oldRecord := ms.records[idx]
+			delete(ms.indexOnShortenedPath, oldRecord.ShortenedPath)
+			delete(ms.indexOnUserID[oldRecord.UserID], idx)
+
+			ms.records[idx] = r
+			ms.indexOnShortenedPath[r.ShortenedPath] = idx
+			_, ok = ms.indexOnUserID[r.UserID]
+			if !ok {
+				ms.indexOnUserID[r.UserID] = make(map[int]struct{})
+			}
+			ms.indexOnUserID[r.UserID][idx] = struct{}{}
+		} else {
+			ms.records = append(ms.records, r)
+			idx = len(ms.records) - 1
+			ms.indexOnOriginalURL[r.OriginalURL] = idx
+			ms.indexOnShortenedPath[r.ShortenedPath] = idx
+			_, ok := ms.indexOnUserID[r.UserID]
+			if !ok {
+				ms.indexOnUserID[r.UserID] = make(map[int]struct{})
+			}
+			ms.indexOnUserID[r.UserID][idx] = struct{}{}
 		}
 	}
 	return nil
@@ -103,18 +115,18 @@ func (ms *MapStorage) BatchDelete(ctx context.Context, shortenedURLs []string, u
 		defer mu.Unlock()
 		defer wg.Done()
 
-		origURL, l := ms.findByShortenedPath(shortenURL)
-		if l == nil || l.UserID != user.ID {
+		idx, ok := ms.indexOnShortenedPath[shortenURL]
+		if !ok {
+			return
+		}
+
+		record := ms.records[idx]
+		if record.UserID != user.ID {
 			return
 		}
 
 		mu.Lock()
-		ms.m[origURL] = link{
-			ShortenedPath: l.ShortenedPath,
-			CorrelationID: l.CorrelationID,
-			UserID:        l.UserID,
-			IsDeleted:     true,
-		}
+		ms.records[idx].IsDeleted = true
 	}
 
 	for _, short := range shortenedURLs {
@@ -135,7 +147,7 @@ func (ms *MapStorage) CreateUser(ctx context.Context) (models.User, error) {
 
 func (ms *MapStorage) Dump() error {
 	if ms.fs != nil {
-		return ms.fs.Dump(*ms)
+		return ms.fs.Dump(ms)
 	}
 
 	return nil
@@ -143,18 +155,8 @@ func (ms *MapStorage) Dump() error {
 
 func (ms *MapStorage) Restore() error {
 	if ms.fs != nil {
-		return ms.fs.Restore(*ms)
+		return ms.fs.Restore(ms)
 	}
 
 	return nil
-}
-
-func (ms *MapStorage) findByShortenedPath(shortenedPath string) (string, *link) {
-	for origURL, l := range ms.m {
-		if l.ShortenedPath == shortenedPath {
-			return origURL, &l
-		}
-	}
-
-	return "", nil
 }
