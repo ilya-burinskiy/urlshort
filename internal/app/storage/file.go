@@ -2,7 +2,6 @@ package storage
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -18,14 +17,14 @@ func NewFileStorage(filePath string) *FileStorage {
 	return &FileStorage{filePath: filePath}
 }
 
-func (fs *FileStorage) Restore(ms *MapStorage) error {
+func (fs *FileStorage) Snapshot() ([]models.Record, error) {
 	file, err := os.OpenFile(fs.filePath, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
-		return fmt.Errorf("could not load data from file: %s", err)
+		return nil, fmt.Errorf("could not load data from file: %s", err)
 	}
 
-	maxUserID := 0
 	scanner := bufio.NewScanner(file)
+	result := make([]models.Record, 0)
 	for scanner.Scan() {
 		var r models.Record
 		data := scanner.Bytes()
@@ -33,24 +32,16 @@ func (fs *FileStorage) Restore(ms *MapStorage) error {
 		if err != nil {
 			continue
 		}
-
-		err = ms.Save(context.TODO(), r)
-		if err != nil {
-			continue
-		}
-
-		if r.UserID > maxUserID {
-			maxUserID = r.UserID
-		}
+		result = append(result, r)
 	}
 
-	ms.userID = maxUserID + 1
 	err = file.Close()
 	if err != nil {
-		return fmt.Errorf("could not restore data: %s", err.Error())
+		return nil, fmt.Errorf("could not restore data: %s", err.Error())
 	}
 
-	return scanner.Err()
+	return result, scanner.Err()
+
 }
 
 func (fs *FileStorage) Dump(ms *MapStorage) error {

@@ -22,7 +22,7 @@ func main() {
 		panic(err)
 	}
 
-	store := configureURLStorage(config)
+	store := configureStorage(config)
 	urlCreateService := services.NewCreateURLService(
 		8,
 		services.StdRandHexStringGenerator{},
@@ -57,7 +57,7 @@ func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 	server.Shutdown(context.TODO())
 }
 
-func configureURLStorage(config configs.Config) storage.Storage {
+func configureStorage(config configs.Config) storage.Storage {
 	var store storage.Storage
 	if config.UseDBStorage() {
 		var err error
@@ -68,10 +68,11 @@ func configureURLStorage(config configs.Config) storage.Storage {
 	} else if config.UseFileStorage() {
 		fs := storage.NewFileStorage(config.FileStoragePath)
 		store = storage.NewMapStorage(fs)
-		err := fs.Restore(store.(*storage.MapStorage))
+		records, err := fs.Snapshot()
 		if err != nil {
 			panic(err)
 		}
+		store.(*storage.MapStorage).Restore(records)
 		dumper := services.NewStorageDumper(store.(*storage.MapStorage), 5*time.Second)
 		dumper.Start()
 	} else {

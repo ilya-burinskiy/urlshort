@@ -153,10 +153,14 @@ func (ms *MapStorage) Dump() error {
 	return nil
 }
 
-func (ms *MapStorage) Restore() error {
-	if ms.fs != nil {
-		return ms.fs.Restore(ms)
+func (ms *MapStorage) Restore(records []models.Record) {
+	ctx := context.TODO()
+	maxUserID := 0
+	for _, r := range records {
+		if r.UserID > maxUserID {
+			maxUserID = r.UserID
+		}
+		ms.Save(ctx, r)
 	}
-
-	return nil
+	ms.userID = maxUserID + 1
 }
