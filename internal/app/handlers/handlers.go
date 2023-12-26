@@ -47,7 +47,7 @@ func ShortenURLRouter(
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
 		router.Post("/api/shorten", handlers.createFromJSON)
-		router.Post("/api/shorten/batch", handlers.batchCreateFromJSON)
+		router.Post("/api/shorten/batch", handlers.batchCreate)
 		router.Get("/api/user/urls", handlers.getUserURLs)
 		router.Delete("/api/user/urls", handlers.deleteUserURLs)
 	})
@@ -168,7 +168,7 @@ func (h handlers) createFromJSON(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath})
 }
 
-func (h handlers) batchCreateFromJSON(w http.ResponseWriter, r *http.Request) {
+func (h handlers) batchCreate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	records := make([]models.Record, 0)
 	encoder := json.NewEncoder(w)
