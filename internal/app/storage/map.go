@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"sync"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 )
@@ -109,32 +108,19 @@ func (ms *MapStorage) BatchSave(ctx context.Context, records []models.Record) er
 }
 
 func (ms *MapStorage) BatchDelete(ctx context.Context, shortenedURLs []string, user models.User) error {
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	worker := func(shortenURL string) {
-		defer mu.Unlock()
-		defer wg.Done()
-
+	for _, shortenURL := range shortenedURLs {
 		idx, ok := ms.indexOnShortenedPath[shortenURL]
 		if !ok {
-			return
+			continue
 		}
 
 		record := ms.records[idx]
 		if record.UserID != user.ID {
-			return
+			continue
 		}
-
-		mu.Lock()
 		ms.records[idx].IsDeleted = true
 	}
 
-	for _, short := range shortenedURLs {
-		wg.Add(1)
-		go worker(short)
-	}
-
-	wg.Wait()
 	return nil
 }
 
