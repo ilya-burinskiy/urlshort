@@ -291,7 +291,7 @@ func (h handlers) getUser(r *http.Request) (models.User, error) {
 		return models.User{}, err
 	}
 
-	claims := &models.Claims{}
+	claims := &auth.Claims{}
 	token, err := jwt.ParseWithClaims(cookie.Value, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(auth.SecretKey), nil
 	})

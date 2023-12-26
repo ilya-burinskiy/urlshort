@@ -11,7 +11,7 @@ const TokenExp = time.Hour * 3
 const SecretKey = "secret"
 
 func BuildJWTString(user models.User) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, models.Claims{
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExp)),
 		},
