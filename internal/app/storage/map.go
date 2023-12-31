@@ -107,17 +107,21 @@ func (ms *MapStorage) BatchSave(ctx context.Context, records []models.Record) er
 	return nil
 }
 
-func (ms *MapStorage) BatchDelete(ctx context.Context, shortenedURLs []string, user models.User) error {
-	for _, shortenURL := range shortenedURLs {
-		idx, ok := ms.indexOnShortenedPath[shortenURL]
+func (ms *MapStorage) BatchDelete(ctx context.Context, records []models.Record) error {
+	for _, r := range records {
+		idx, ok := ms.indexOnShortenedPath[r.ShortenedPath]
 		if !ok {
 			continue
 		}
 
-		record := ms.records[idx]
-		if record.UserID != user.ID {
+		usersRecords, ok := ms.indexOnUserID[r.UserID]
+		if !ok {
 			continue
 		}
+		if _, ok = usersRecords[idx]; !ok {
+			continue
+		}
+
 		ms.records[idx].IsDeleted = true
 	}
 

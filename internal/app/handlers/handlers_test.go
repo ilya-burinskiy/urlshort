@@ -59,7 +59,8 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, storageMock))
+	urlDeleter := services.NewBatchDeleter(storageMock)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, urlDeleter, storageMock))
 	defer testServer.Close()
 
 	type generatorCallResult struct {
@@ -173,7 +174,8 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, storageMock))
+	urlDeleter := services.NewBatchDeleter(storageMock)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, urlDeleter, storageMock))
 	defer testServer.Close()
 
 	toJSON := func(v interface{}) string {
@@ -311,7 +313,8 @@ func TestGetShortenedURLHandler(t *testing.T) {
 
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, storageMock))
+	urlDeleter := services.NewBatchDeleter(storageMock)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, urlDeleter, storageMock))
 	defer testServer.Close()
 
 	testCases := []struct {

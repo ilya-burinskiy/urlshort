@@ -28,7 +28,7 @@ type Storage interface {
 	FindByUser(ctx context.Context, user models.User) ([]models.Record, error)
 	Save(ctx context.Context, record models.Record) error
 	BatchSave(ctx context.Context, records []models.Record) error
-	BatchDelete(ctx context.Context, shortenedPaths []string, user models.User) error
+	BatchDelete(ctx context.Context, records []models.Record) error
 
 	CreateUser(ctx context.Context) (models.User, error)
 }

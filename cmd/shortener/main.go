@@ -28,8 +28,11 @@ func main() {
 		services.StdRandHexStringGenerator{},
 		store,
 	)
+	urlDeleter := services.NewBatchDeleter(store)
+	go urlDeleter.Run()
+
 	server := http.Server{
-		Handler: handlers.ShortenURLRouter(config, urlCreateService, store),
+		Handler: handlers.ShortenURLRouter(config, urlCreateService, urlDeleter, store),
 		Addr:    config.ServerAddress,
 	}
 	exit := make(chan os.Signal, 1)

@@ -203,8 +203,8 @@ func (h handlers) getUserURLs(w http.ResponseWriter, r *http.Request) {
 func (h handlers) deleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
-	var requestBody []string
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+	var shortPaths []string
+	if err := json.NewDecoder(r.Body).Decode(&shortPaths); err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		encoder.Encode("invalid request body")
 		return
@@ -216,11 +216,11 @@ func (h handlers) deleteUserURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.s.BatchDelete(r.Context(), requestBody, user)
-	if err != nil {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		encoder.Encode(err.Error())
-		return
+	for _, shortPath := range shortPaths {
+		h.urlDeleter.Delete(models.Record{
+			ShortenedPath: shortPath,
+			UserID: user.ID,
+		})
 	}
 
 	w.WriteHeader(http.StatusAccepted)

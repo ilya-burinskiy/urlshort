@@ -20,12 +20,14 @@ import (
 func ShortenURLRouter(
 	config configs.Config,
 	urlCreateService services.CreateURLService,
+	urlDeleter *services.BatchDeleter,
 	s storage.Storage) chi.Router {
 
 	router := chi.NewRouter()
 	handlers := handlers{
 		config:           config,
 		urlCreateService: urlCreateService,
+		urlDeleter:       urlDeleter,
 		s:                s,
 	}
 	router.Use(
@@ -54,6 +56,7 @@ func ShortenURLRouter(
 type handlers struct {
 	config           configs.Config
 	urlCreateService services.CreateURLService
+	urlDeleter       *services.BatchDeleter
 	s                storage.Storage
 }
 
