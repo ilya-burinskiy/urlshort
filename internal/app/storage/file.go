@@ -2,7 +2,6 @@ package storage
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -18,13 +17,14 @@ func NewFileStorage(filePath string) *FileStorage {
 	return &FileStorage{filePath: filePath}
 }
 
-func (fs *FileStorage) Restore(ms MapStorage) error {
+func (fs *FileStorage) Snapshot() ([]models.Record, error) {
 	file, err := os.OpenFile(fs.filePath, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
-		return fmt.Errorf("could not load data from file: %s", err)
+		return nil, fmt.Errorf("could not load data from file: %s", err)
 	}
 
 	scanner := bufio.NewScanner(file)
+	result := make([]models.Record, 0)
 	for scanner.Scan() {
 		var r models.Record
 		data := scanner.Bytes()
@@ -32,19 +32,19 @@ func (fs *FileStorage) Restore(ms MapStorage) error {
 		if err != nil {
 			continue
 		}
-
-		ms.Save(context.Background(), r)
+		result = append(result, r)
 	}
 
 	err = file.Close()
 	if err != nil {
-		return fmt.Errorf("could not restore data: %s", err.Error())
+		return nil, fmt.Errorf("could not restore data: %s", err.Error())
 	}
 
-	return scanner.Err()
+	return result, scanner.Err()
+
 }
 
-func (fs *FileStorage) Dump(ms MapStorage) error {
+func (fs *FileStorage) Dump(ms *MapStorage) error {
 	file, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return fmt.Errorf("could not dump storage: %w", err)
@@ -52,10 +52,8 @@ func (fs *FileStorage) Dump(ms MapStorage) error {
 
 	encoder := json.NewEncoder(file)
 	// NOTE: maybe define some Iter method for MapStorage
-	for k, l := range ms.m {
-		shortenedPath := l.ShortenedPath
-		correlationID := l.CorrelationID
-		encoder.Encode(models.Record{OriginalURL: k, ShortenedPath: shortenedPath, CorrelationID: correlationID})
+	for _, r := range ms.records {
+		encoder.Encode(r)
 	}
 	if err = file.Close(); err != nil {
 		return fmt.Errorf("could not dump storage: %w", err)

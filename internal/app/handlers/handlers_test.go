@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
+	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage/mocks"
 
@@ -51,9 +52,15 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		Save(gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return(nil)
+	storageMock.EXPECT().
+		CreateUser(gomock.Any()).
+		AnyTimes().
+		Return(models.User{ID: 1}, nil)
 
 	generatorMock := new(mockRandHexStringGenerator)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
+	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
+	urlDeleter := services.NewBatchDeleter(storageMock)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, urlDeleter, storageMock))
 	defer testServer.Close()
 
 	type generatorCallResult struct {
@@ -160,9 +167,15 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 		Save(gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return(nil)
+	storageMock.EXPECT().
+		CreateUser(gomock.Any()).
+		AnyTimes().
+		Return(models.User{ID: 1}, nil)
 
 	generatorMock := new(mockRandHexStringGenerator)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
+	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
+	urlDeleter := services.NewBatchDeleter(storageMock)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, urlDeleter, storageMock))
 	defer testServer.Close()
 
 	toJSON := func(v interface{}) string {
@@ -285,6 +298,10 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 func TestGetShortenedURLHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	storageMock := mocks.NewMockStorage(ctrl)
+	storageMock.EXPECT().
+		CreateUser(gomock.Any()).
+		AnyTimes().
+		Return(models.User{ID: 1}, nil)
 	gomock.InOrder(
 		storageMock.EXPECT().
 			FindByShortenedPath(gomock.Any(), gomock.Any()).
@@ -295,7 +312,9 @@ func TestGetShortenedURLHandler(t *testing.T) {
 	)
 
 	generatorMock := new(mockRandHexStringGenerator)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, generatorMock, storageMock))
+	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
+	urlDeleter := services.NewBatchDeleter(storageMock)
+	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, urlDeleter, storageMock))
 	defer testServer.Close()
 
 	testCases := []struct {
