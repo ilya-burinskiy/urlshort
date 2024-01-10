@@ -1,14 +1,22 @@
 package middlewares
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/compress"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"go.uber.org/zap"
 )
+
+type contextKey string
+
+const userIDKey contextKey = "user_id"
 
 func GzipCompress(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -63,3 +71,30 @@ func RequestLogger(h http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+func Authenticate(h http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		encoder := json.NewEncoder(w)
+		cookie, err := r.Cookie("jwt")
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			encoder.Encode(err.Error())
+			return
+		}
+		claims := &auth.Claims{}
+		token, err := jwt.ParseWithClaims(cookie.Value, claims, func(token *jwt.Token) (interface{}, error) {
+			return []byte(auth.SecretKey), nil
+		})
+		if err != nil || !token.Valid {
+			w.WriteHeader(http.StatusUnauthorized)
+			encoder.Encode("invalid jwt token")
+			return
+		}
+		ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
+		h(w, r.WithContext(ctx))
+	})
+}
+
+func UserIDFromContext(ctx context.Context) (int, bool) {
+	userID, ok := ctx.Value(userIDKey).(int)
+	return userID, ok
+}

@@ -46,8 +46,11 @@ func ShortenURLRouter(
 		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
 		router.Post("/api/shorten", handlers.createFromJSON)
 		router.Post("/api/shorten/batch", handlers.batchCreate)
-		router.Get("/api/user/urls", handlers.getUserURLs)
-		router.Delete("/api/user/urls", handlers.deleteUserURLs)
+		router.Group(func(router chi.Router) {
+			router.Use(handlerFunc2Handler(middlewares.Authenticate))
+			router.Get("/api/user/urls", handlers.getUserURLs)
+			router.Delete("/api/user/urls", handlers.deleteUserURLs)
+		})
 	})
 
 	return router

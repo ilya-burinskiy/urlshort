@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
+	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
@@ -171,12 +172,8 @@ func (h handlers) batchCreate(w http.ResponseWriter, r *http.Request) {
 
 func (h handlers) getUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	user, err := h.getUser(r)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
+	userID, _ := middlewares.UserIDFromContext(r.Context())
+	user := models.User{ID: userID}
 	records, err := h.s.FindByUser(r.Context(), user)
 	encoder := json.NewEncoder(w)
 	if err != nil {
@@ -210,16 +207,11 @@ func (h handlers) deleteUserURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.getUser(r)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
+	userID, _ := middlewares.UserIDFromContext(r.Context())
 	for _, shortPath := range shortPaths {
 		h.urlDeleter.Delete(models.Record{
 			ShortenedPath: shortPath,
-			UserID: user.ID,
+			UserID:        userID,
 		})
 	}
 
