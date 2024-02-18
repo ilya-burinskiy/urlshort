@@ -12,6 +12,7 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
+	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
@@ -32,45 +33,47 @@ func (h Handlers) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 		ServeHTTP(w, r)
 }
 
-func (h Handlers) CreateURL(w http.ResponseWriter, r *http.Request) {
-	user, err := h.GetUser(r)
-	if err != nil {
-		user, err = h.store.CreateUser(r.Context())
+func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, err := h.GetUser(r)
 		if err != nil {
-			http.Error(w, "failed to create user: "+err.Error(), http.StatusInternalServerError)
-			return
+			user, err = h.store.CreateUser(r.Context())
+			if err != nil {
+				http.Error(w, "failed to create user: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			token, err := auth.BuildJWTString(user)
+			if err != nil {
+				http.Error(w, "failed to build JWT string: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			setJWTCookie(w, token)
 		}
 
-		token, err := auth.BuildJWTString(user)
+		bytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "failed to build JWT string: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		originalURL := string(bytes)
+
+		record, err := urlCreateService.Create(originalURL, user)
+		if err != nil {
+			var notUniqErr *storage.ErrNotUnique
+			if errors.As(err, &notUniqErr) {
+				w.WriteHeader(http.StatusConflict)
+				w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + notUniqErr.Record.ShortenedPath))
+				return
+			}
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
 
-		setJWTCookie(w, token)
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath))
 	}
-
-	bytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		return
-	}
-	originalURL := string(bytes)
-
-	record, err := h.urlCreateService.Create(originalURL, user)
-	if err != nil {
-		var notUniqErr *storage.ErrNotUnique
-		if errors.As(err, &notUniqErr) {
-			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + notUniqErr.Record.ShortenedPath))
-			return
-		}
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath))
 }
 
 func (h Handlers) CreateURLFromJSON(w http.ResponseWriter, r *http.Request) {

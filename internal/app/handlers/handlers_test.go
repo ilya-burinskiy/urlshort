@@ -72,7 +72,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		middleware.AllowContentEncoding("gzip"),
 		middleware.AllowContentType("text/plain", "application/x-gzip"),
 	)
-	router.Post("/", handler.CreateURL)
+	router.Post("/", handler.CreateURL(urlCreateService))
 	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 

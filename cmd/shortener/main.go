@@ -84,7 +84,7 @@ func configureRouter(
 	)
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("text/plain", "application/x-gzip"))
-		router.Post("/", handlers.CreateURL)
+		router.Post("/", handlers.CreateURL(urlCreateService))
 		router.Get("/{id}", handlers.GetOriginalURL)
 		router.Get("/ping", handlers.PingDB)
 	})
