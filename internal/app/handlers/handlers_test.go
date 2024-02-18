@@ -62,8 +62,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	urlDeleter := services.NewBatchDeleter(storageMock)
-	handler := NewHandlers(defaultConfig, urlDeleter, storageMock)
+	handler := NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
 		middlewares.ResponseLogger,
@@ -187,8 +186,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	urlDeleter := services.NewBatchDeleter(storageMock)
-	handler := NewHandlers(defaultConfig, urlDeleter, storageMock)
+	handler := NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
 		middlewares.ResponseLogger,
@@ -334,8 +332,7 @@ func TestGetShortenedURLHandler(t *testing.T) {
 			Return(models.Record{}, storage.ErrNotFound),
 	)
 
-	urlDeleter := services.NewBatchDeleter(storageMock)
-	handler := NewHandlers(defaultConfig, urlDeleter, storageMock)
+	handler := NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
 		middlewares.ResponseLogger,

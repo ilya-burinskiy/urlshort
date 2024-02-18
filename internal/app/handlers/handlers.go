@@ -9,25 +9,21 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
-	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"github.com/jackc/pgx/v5"
 )
 
 type Handlers struct {
 	config           configs.Config
-	urlDeleter       *services.BatchDeleter
 	store            storage.Storage
 }
 
 func NewHandlers(
 	config configs.Config,
-	urlDeleter *services.BatchDeleter,
 	store storage.Storage) Handlers {
 
 	return Handlers{
 		config:           config,
-		urlDeleter:       urlDeleter,
 		store:            store,
 	}
 

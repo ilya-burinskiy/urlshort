@@ -204,23 +204,25 @@ func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(response)
 }
 
-func (h Handlers) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	encoder := json.NewEncoder(w)
-	var shortPaths []string
-	if err := json.NewDecoder(r.Body).Decode(&shortPaths); err != nil {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		encoder.Encode("invalid request body")
-		return
-	}
+func (h Handlers) DeleteUserURLs(urlDeleter *services.BatchDeleter) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		encoder := json.NewEncoder(w)
+		var shortPaths []string
+		if err := json.NewDecoder(r.Body).Decode(&shortPaths); err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			encoder.Encode("invalid request body")
+			return
+		}
 
-	userID, _ := middlewares.UserIDFromContext(r.Context())
-	for _, shortPath := range shortPaths {
-		h.urlDeleter.Delete(models.Record{
-			ShortenedPath: shortPath,
-			UserID:        userID,
-		})
-	}
+		userID, _ := middlewares.UserIDFromContext(r.Context())
+		for _, shortPath := range shortPaths {
+			urlDeleter.Delete(models.Record{
+				ShortenedPath: shortPath,
+				UserID:        userID,
+			})
+		}
 
-	w.WriteHeader(http.StatusAccepted)
+		w.WriteHeader(http.StatusAccepted)
+	}
 }

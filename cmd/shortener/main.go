@@ -70,11 +70,7 @@ func configureRouter(
 	s storage.Storage) chi.Router {
 
 	router := chi.NewRouter()
-	handlers := handlers.NewHandlers(
-		config,
-		urlDeleter,
-		s,
-	)
+	handlers := handlers.NewHandlers(config, s)
 	router.Use(
 		middlewares.ResponseLogger,
 		middlewares.RequestLogger,
@@ -94,7 +90,7 @@ func configureRouter(
 		router.Group(func(router chi.Router) {
 			router.Use(middlewares.Authenticate)
 			router.Get("/api/user/urls", handlers.GetUserURLs)
-			router.Delete("/api/user/urls", handlers.DeleteUserURLs)
+			router.Delete("/api/user/urls", handlers.DeleteUserURLs(urlDeleter))
 		})
 	})
 
