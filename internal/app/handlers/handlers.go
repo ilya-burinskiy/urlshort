@@ -16,20 +16,17 @@ import (
 
 type Handlers struct {
 	config           configs.Config
-	urlCreateService services.CreateURLService
 	urlDeleter       *services.BatchDeleter
 	store            storage.Storage
 }
 
 func NewHandlers(
 	config configs.Config,
-	urlCreateSerivce services.CreateURLService,
 	urlDeleter *services.BatchDeleter,
 	store storage.Storage) Handlers {
 
 	return Handlers{
 		config:           config,
-		urlCreateService: urlCreateSerivce,
 		urlDeleter:       urlDeleter,
 		store:            store,
 	}

@@ -72,7 +72,6 @@ func configureRouter(
 	router := chi.NewRouter()
 	handlers := handlers.NewHandlers(
 		config,
-		urlCreateService,
 		urlDeleter,
 		s,
 	)
@@ -91,7 +90,7 @@ func configureRouter(
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
 		router.Post("/api/shorten", handlers.CreateURLFromJSON(urlCreateService))
-		router.Post("/api/shorten/batch", handlers.BatchCreateURL)
+		router.Post("/api/shorten/batch", handlers.BatchCreateURL(urlCreateService))
 		router.Group(func(router chi.Router) {
 			router.Use(middlewares.Authenticate)
 			router.Get("/api/user/urls", handlers.GetUserURLs)

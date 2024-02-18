@@ -127,52 +127,54 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 	}
 }
 
-func (h Handlers) BatchCreateURL(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	records := make([]models.Record, 0)
-	encoder := json.NewEncoder(w)
-	err := json.NewDecoder(r.Body).Decode(&records)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		encoder.Encode(fmt.Sprintf("failed to parse request body: %s", err.Error()))
-		return
-	}
-
-	user, err := h.GetUser(r)
-	if err != nil {
-		user, err = h.store.CreateUser(r.Context())
+func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		records := make([]models.Record, 0)
+		encoder := json.NewEncoder(w)
+		err := json.NewDecoder(r.Body).Decode(&records)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			encoder.Encode("failed to create user: " + err.Error())
+			w.WriteHeader(http.StatusBadRequest)
+			encoder.Encode(fmt.Sprintf("failed to parse request body: %s", err.Error()))
 			return
 		}
 
-		token, err := auth.BuildJWTString(user)
+		user, err := h.GetUser(r)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			encoder.Encode("failed to build JWT string: " + err.Error())
+			user, err = h.store.CreateUser(r.Context())
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				encoder.Encode("failed to create user: " + err.Error())
+				return
+			}
+
+			token, err := auth.BuildJWTString(user)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				encoder.Encode("failed to build JWT string: " + err.Error())
+				return
+			}
+
+			setJWTCookie(w, token)
+		}
+		err = urlCreateService.BatchCreate(records, user)
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			encoder.Encode(err.Error())
 			return
 		}
 
-		setJWTCookie(w, token)
-	}
-	err = h.urlCreateService.BatchCreate(records, user)
-	if err != nil {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		encoder.Encode(err.Error())
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	response := make([]map[string]string, len(records))
-	for i := range records {
-		response[i] = map[string]string{
-			"correlation_id": records[i].CorrelationID,
-			"short_url":      h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
+		w.WriteHeader(http.StatusCreated)
+		response := make([]map[string]string, len(records))
+		for i := range records {
+			response[i] = map[string]string{
+				"correlation_id": records[i].CorrelationID,
+				"short_url":      h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
+			}
 		}
+		w.WriteHeader(http.StatusCreated)
+		encoder.Encode(response)
 	}
-	w.WriteHeader(http.StatusCreated)
-	encoder.Encode(response)
 }
 
 func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
