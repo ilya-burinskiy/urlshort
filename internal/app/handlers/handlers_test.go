@@ -197,7 +197,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 		middleware.AllowContentEncoding("gzip"),
 		middleware.AllowContentType("application/json", "application/x-gzip"),
 	)
-	router.Post("/api/shorten", handler.CreateURLFromJSON)
+	router.Post("/api/shorten", handler.CreateURLFromJSON(urlCreateService))
 	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 

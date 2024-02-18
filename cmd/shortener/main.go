@@ -90,7 +90,7 @@ func configureRouter(
 	})
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
-		router.Post("/api/shorten", handlers.CreateURLFromJSON)
+		router.Post("/api/shorten", handlers.CreateURLFromJSON(urlCreateService))
 		router.Post("/api/shorten/batch", handlers.BatchCreateURL)
 		router.Group(func(router chi.Router) {
 			router.Use(middlewares.Authenticate)

@@ -76,53 +76,55 @@ func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(htt
 	}
 }
 
-func (h Handlers) CreateURLFromJSON(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var requestBody map[string]string
-	encoder := json.NewEncoder(w)
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		encoder.Encode("invalid request")
-		return
-	}
+func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var requestBody map[string]string
+		encoder := json.NewEncoder(w)
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			encoder.Encode("invalid request")
+			return
+		}
 
-	user, err := h.GetUser(r)
-	if err != nil {
-		user, err = h.store.CreateUser(r.Context())
+		user, err := h.GetUser(r)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			encoder.Encode("failed to create user: " + err.Error())
-			return
-		}
+			user, err = h.store.CreateUser(r.Context())
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				encoder.Encode("failed to create user: " + err.Error())
+				return
+			}
 
-		token, err := auth.BuildJWTString(user)
+			token, err := auth.BuildJWTString(user)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				encoder.Encode("failed to build JWT string: " + err.Error())
+				return
+			}
+
+			setJWTCookie(w, token)
+		}
+		originalURL := requestBody["url"]
+		record, err := urlCreateService.Create(originalURL, user)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			encoder.Encode("failed to build JWT string: " + err.Error())
+			var notUniqErr *storage.ErrNotUnique
+			if errors.As(err, &notUniqErr) {
+				w.WriteHeader(http.StatusConflict)
+				encoder.Encode(
+					map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" +
+						notUniqErr.Record.ShortenedPath},
+				)
+				return
+			}
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			encoder.Encode("could not create shortened URL")
 			return
 		}
 
-		setJWTCookie(w, token)
+		w.WriteHeader(http.StatusCreated)
+		encoder.Encode(map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath})
 	}
-	originalURL := requestBody["url"]
-	record, err := h.urlCreateService.Create(originalURL, user)
-	if err != nil {
-		var notUniqErr *storage.ErrNotUnique
-		if errors.As(err, &notUniqErr) {
-			w.WriteHeader(http.StatusConflict)
-			encoder.Encode(
-				map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" +
-					notUniqErr.Record.ShortenedPath},
-			)
-			return
-		}
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		encoder.Encode("could not create shortened URL")
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	encoder.Encode(map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath})
 }
 
 func (h Handlers) BatchCreateURL(w http.ResponseWriter, r *http.Request) {
