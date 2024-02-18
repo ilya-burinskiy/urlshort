@@ -7,8 +7,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang/mock/gomock"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
@@ -60,7 +63,17 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
 	urlDeleter := services.NewBatchDeleter(storageMock)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, urlDeleter, storageMock))
+	handler := NewHandlers(defaultConfig, urlCreateService, urlDeleter, storageMock)
+	router := chi.NewRouter()
+	router.Use(
+		middlewares.ResponseLogger,
+		middlewares.RequestLogger,
+		middlewares.GzipCompress,
+		middleware.AllowContentEncoding("gzip"),
+		middleware.AllowContentType("text/plain", "application/x-gzip"),
+	)
+	router.Post("/", handler.CreateURL)
+	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 
 	type generatorCallResult struct {
@@ -175,7 +188,17 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
 	urlDeleter := services.NewBatchDeleter(storageMock)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, urlDeleter, storageMock))
+	handler := NewHandlers(defaultConfig, urlCreateService, urlDeleter, storageMock)
+	router := chi.NewRouter()
+	router.Use(
+		middlewares.ResponseLogger,
+		middlewares.RequestLogger,
+		middlewares.GzipCompress,
+		middleware.AllowContentEncoding("gzip"),
+		middleware.AllowContentType("application/json", "application/x-gzip"),
+	)
+	router.Post("/api/shorten", handler.CreateURLFromJSON)
+	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 
 	toJSON := func(v interface{}) string {
@@ -314,7 +337,17 @@ func TestGetShortenedURLHandler(t *testing.T) {
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
 	urlDeleter := services.NewBatchDeleter(storageMock)
-	testServer := httptest.NewServer(ShortenURLRouter(defaultConfig, urlCreateService, urlDeleter, storageMock))
+	handler := NewHandlers(defaultConfig, urlCreateService, urlDeleter, storageMock)
+	router := chi.NewRouter()
+	router.Use(
+		middlewares.ResponseLogger,
+		middlewares.RequestLogger,
+		middlewares.GzipCompress,
+		middleware.AllowContentEncoding("gzip"),
+		middleware.AllowContentType("application/json", "application/x-gzip"),
+	)
+	router.Get("/{id}", handler.GetOriginalURL)
+	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 
 	testCases := []struct {

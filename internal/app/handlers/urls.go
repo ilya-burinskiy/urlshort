@@ -15,9 +15,9 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
-func (h handlers) get(w http.ResponseWriter, r *http.Request) {
+func (h Handlers) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 	shortenedPath := chi.URLParam(r, "id")
-	record, err := h.s.FindByShortenedPath(context.Background(), shortenedPath)
+	record, err := h.store.FindByShortenedPath(context.Background(), shortenedPath)
 	if errors.Is(err, storage.ErrNotFound) {
 		http.Error(w, fmt.Sprintf("Original URL for \"%v\" not found", shortenedPath), http.StatusBadRequest)
 		return
@@ -32,10 +32,10 @@ func (h handlers) get(w http.ResponseWriter, r *http.Request) {
 		ServeHTTP(w, r)
 }
 
-func (h handlers) create(w http.ResponseWriter, r *http.Request) {
-	user, err := h.getUser(r)
+func (h Handlers) CreateURL(w http.ResponseWriter, r *http.Request) {
+	user, err := h.GetUser(r)
 	if err != nil {
-		user, err = h.s.CreateUser(r.Context())
+		user, err = h.store.CreateUser(r.Context())
 		if err != nil {
 			http.Error(w, "failed to create user: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -73,7 +73,7 @@ func (h handlers) create(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath))
 }
 
-func (h handlers) createFromJSON(w http.ResponseWriter, r *http.Request) {
+func (h Handlers) CreateURLFromJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var requestBody map[string]string
 	encoder := json.NewEncoder(w)
@@ -83,9 +83,9 @@ func (h handlers) createFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.getUser(r)
+	user, err := h.GetUser(r)
 	if err != nil {
-		user, err = h.s.CreateUser(r.Context())
+		user, err = h.store.CreateUser(r.Context())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			encoder.Encode("failed to create user: " + err.Error())
@@ -122,7 +122,7 @@ func (h handlers) createFromJSON(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath})
 }
 
-func (h handlers) batchCreate(w http.ResponseWriter, r *http.Request) {
+func (h Handlers) BatchCreateURL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	records := make([]models.Record, 0)
 	encoder := json.NewEncoder(w)
@@ -133,9 +133,9 @@ func (h handlers) batchCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.getUser(r)
+	user, err := h.GetUser(r)
 	if err != nil {
-		user, err = h.s.CreateUser(r.Context())
+		user, err = h.store.CreateUser(r.Context())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			encoder.Encode("failed to create user: " + err.Error())
@@ -170,11 +170,11 @@ func (h handlers) batchCreate(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(response)
 }
 
-func (h handlers) getUserURLs(w http.ResponseWriter, r *http.Request) {
+func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	userID, _ := middlewares.UserIDFromContext(r.Context())
 	user := models.User{ID: userID}
-	records, err := h.s.FindByUser(r.Context(), user)
+	records, err := h.store.FindByUser(r.Context(), user)
 	encoder := json.NewEncoder(w)
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -197,7 +197,7 @@ func (h handlers) getUserURLs(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(response)
 }
 
-func (h handlers) deleteUserURLs(w http.ResponseWriter, r *http.Request) {
+func (h Handlers) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	var shortPaths []string
