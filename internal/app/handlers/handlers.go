@@ -31,9 +31,9 @@ func ShortenURLRouter(
 		s:                s,
 	}
 	router.Use(
-		handlerFunc2Handler(middlewares.ResponseLogger),
-		handlerFunc2Handler(middlewares.RequestLogger),
-		handlerFunc2Handler(middlewares.GzipCompress),
+		middlewares.ResponseLogger,
+		middlewares.RequestLogger,
+		middlewares.GzipCompress,
 		middleware.AllowContentEncoding("gzip"),
 	)
 	router.Group(func(router chi.Router) {
@@ -47,7 +47,7 @@ func ShortenURLRouter(
 		router.Post("/api/shorten", handlers.createFromJSON)
 		router.Post("/api/shorten/batch", handlers.batchCreate)
 		router.Group(func(router chi.Router) {
-			router.Use(handlerFunc2Handler(middlewares.Authenticate))
+			router.Use(middlewares.Authenticate)
 			router.Get("/api/user/urls", handlers.getUserURLs)
 			router.Delete("/api/user/urls", handlers.deleteUserURLs)
 		})
@@ -102,10 +102,4 @@ func setJWTCookie(w http.ResponseWriter, token string) {
 			HttpOnly: true,
 		},
 	)
-}
-
-func handlerFunc2Handler(f func(http.HandlerFunc) http.HandlerFunc) func(http.Handler) http.Handler {
-	return func(h http.Handler) http.Handler {
-		return f(h.(http.HandlerFunc))
-	}
 }
