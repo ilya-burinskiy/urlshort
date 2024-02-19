@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"go.uber.org/zap"
+
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/compress"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
-	"go.uber.org/zap"
 )
 
 type contextKey string

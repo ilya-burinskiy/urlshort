@@ -10,13 +10,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
+
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
-	"go.uber.org/zap"
 )
 
 func main() {

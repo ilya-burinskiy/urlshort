@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
