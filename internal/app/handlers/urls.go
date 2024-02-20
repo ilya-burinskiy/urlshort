@@ -158,7 +158,7 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 
 			setJWTCookie(w, token)
 		}
-		err = urlCreateService.BatchCreate(records, user)
+		savedRecords, err := urlCreateService.BatchCreate(records, user)
 		if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			encoder.Encode(err.Error())
@@ -166,11 +166,11 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		response := make([]map[string]string, len(records))
+		response := make([]map[string]string, len(savedRecords))
 		for i := range records {
 			response[i] = map[string]string{
-				"correlation_id": records[i].CorrelationID,
-				"short_url":      h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
+				"correlation_id": savedRecords[i].CorrelationID,
+				"short_url":      h.config.ShortenedURLBaseAddr + "/" + savedRecords[i].ShortenedPath,
 			}
 		}
 		w.WriteHeader(http.StatusCreated)
