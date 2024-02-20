@@ -13,21 +13,26 @@ type RandHexStringGenerator interface {
 	Call(n int) (string, error)
 }
 
-type CreateURLService struct {
+type CreateURLService interface {
+	Create(string, models.User) (models.Record, error)
+	BatchCreate([]models.Record, models.User) error
+}
+
+type createURLService struct {
 	pathLen int
 	randGen RandHexStringGenerator
 	store   storage.Storage
 }
 
 func NewCreateURLService(pathLen int, randGen RandHexStringGenerator, store storage.Storage) CreateURLService {
-	return CreateURLService{
+	return createURLService{
 		pathLen: pathLen,
 		randGen: randGen,
 		store:   store,
 	}
 }
 
-func (service CreateURLService) Create(originalURL string, user models.User) (models.Record, error) {
+func (service createURLService) Create(originalURL string, user models.User) (models.Record, error) {
 	record, err := service.store.FindByOriginalURL(context.Background(), originalURL)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
@@ -51,7 +56,7 @@ func (service CreateURLService) Create(originalURL string, user models.User) (mo
 	return models.Record{}, storage.NewErrNotUnique(record)
 }
 
-func (service CreateURLService) BatchCreate(records []models.Record, user models.User) error {
+func (service createURLService) BatchCreate(records []models.Record, user models.User) error {
 	for i := range records {
 		shortenedPath, err := service.randGen.Call(service.pathLen)
 		if err != nil {
