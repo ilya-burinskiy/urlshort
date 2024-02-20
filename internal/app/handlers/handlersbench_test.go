@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"encoding/json"
@@ -13,6 +13,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage/mocks"
@@ -23,7 +24,7 @@ func BenchmarkCreateShortenedURLHandler(b *testing.B) {
 	storageMock := mocks.NewMockStorage(ctrl)
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	handler := NewHandlers(defaultConfig, storageMock)
+	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
 		middlewares.ResponseLogger,
@@ -55,7 +56,7 @@ func BenchmarkCreateURLFromJSON(b *testing.B) {
 	storageMock := mocks.NewMockStorage(ctrl)
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	handler := NewHandlers(defaultConfig, storageMock)
+	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
 		middlewares.ResponseLogger,
@@ -91,7 +92,7 @@ func BenchmarkCreateURLFromJSON(b *testing.B) {
 func BenchmarkGetOriginalURLHandler(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	storageMock := mocks.NewMockStorage(ctrl)
-	handler := NewHandlers(defaultConfig, storageMock)
+	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
 		middlewares.ResponseLogger,

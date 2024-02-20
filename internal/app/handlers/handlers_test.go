@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"encoding/json"
@@ -12,6 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
@@ -63,7 +64,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	handler := NewHandlers(defaultConfig, storageMock)
+	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
 		middlewares.ResponseLogger,
@@ -187,7 +188,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	handler := NewHandlers(defaultConfig, storageMock)
+	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
 		middlewares.ResponseLogger,
@@ -333,7 +334,7 @@ func TestGetShortenedURLHandler(t *testing.T) {
 			Return(models.Record{}, storage.ErrNotFound),
 	)
 
-	handler := NewHandlers(defaultConfig, storageMock)
+	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
 		middlewares.ResponseLogger,
