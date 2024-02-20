@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -33,4 +34,26 @@ func toJSON(t require.TestingT, v interface{}) string {
 	require.NoError(t, err)
 
 	return string(result)
+}
+
+type urlCreaterMock struct{ mock.Mock }
+
+func (m *urlCreaterMock) Create(originalURL string, user models.User) (models.Record, error) {
+	args := m.Called(originalURL, user)
+	return args.Get(0).(models.Record), args.Error(1)
+}
+
+func (m *urlCreaterMock) BatchCreate(records []models.Record, user models.User) ([]models.Record, error) {
+	args := m.Called(records, user)
+	return args.Get(0).([]models.Record), args.Error(1)
+}
+
+type urlCreaterCreateResult struct {
+	returnValue models.Record
+	err         error
+}
+
+type urlCreaterBatchCreateResult struct {
+	returnValue []models.Record
+	err         error
 }
