@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -57,13 +56,6 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 
-	toJSON := func(v interface{}) string {
-		result, err := json.Marshal(v)
-		require.NoError(t, err)
-
-		return string(result)
-	}
-
 	type generatorCallResult struct {
 		returnValue string
 		error       error
@@ -81,12 +73,12 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 			name:                "responses with created status",
 			httpMethod:          http.MethodPost,
 			path:                "/api/shorten",
-			requestBody:         toJSON(map[string]string{"url": "http://example.com"}),
+			requestBody:         toJSON(t, map[string]string{"url": "http://example.com"}),
 			contentType:         "application/json",
 			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
 			want: want{
 				code:        http.StatusCreated,
-				response:    toJSON(map[string]string{"result": "http://localhost:8080/123"}) + "\n",
+				response:    toJSON(t, map[string]string{"result": "http://localhost:8080/123"}) + "\n",
 				contentType: "application/json",
 			},
 		},
@@ -106,7 +98,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 			name:                `responses with bad request if content-type is not "application/json"`,
 			httpMethod:          http.MethodPost,
 			path:                "/api/shorten",
-			requestBody:         toJSON(map[string]string{"url": "http://example.com"}),
+			requestBody:         toJSON(t, map[string]string{"url": "http://example.com"}),
 			contentType:         "text/plain",
 			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
 			want: want{
@@ -124,7 +116,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
 			want: want{
 				code:        http.StatusUnprocessableEntity,
-				response:    toJSON("invalid request") + "\n",
+				response:    toJSON(t, "invalid request") + "\n",
 				contentType: "application/json",
 			},
 		},
@@ -132,12 +124,12 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 			name:                "responses with unprocessable entity status if could not create shortened URL",
 			httpMethod:          http.MethodPost,
 			path:                "/api/shorten",
-			requestBody:         toJSON(map[string]string{"url": "http://example.com"}),
+			requestBody:         toJSON(t, map[string]string{"url": "http://example.com"}),
 			contentType:         "application/json",
 			generatorCallResult: generatorCallResult{returnValue: "", error: errors.New("error")},
 			want: want{
 				code:        http.StatusUnprocessableEntity,
-				response:    toJSON("could not create shortened URL") + "\n",
+				response:    toJSON(t, "could not create shortened URL") + "\n",
 				contentType: "application/json",
 			},
 		},

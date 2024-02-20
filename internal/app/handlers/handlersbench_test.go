@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -121,11 +120,4 @@ func BenchmarkGetOriginalURLHandler(b *testing.B) {
 		require.NoError(b, err)
 		response.Body.Close()
 	}
-}
-
-func toJSON(b *testing.B, v interface{}) string {
-	result, err := json.Marshal(v)
-	require.NoError(b, err)
-
-	return string(result)
 }
