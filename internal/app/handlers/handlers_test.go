@@ -51,11 +51,6 @@ func (m *urlCreaterMock) BatchCreate(records []models.Record, user models.User) 
 	return args.Get(0).([]models.Record), args.Error(1)
 }
 
-type urlCreaterCreateResult struct {
-	returnValue models.Record
-	err         error
-}
-
 type urlCreaterBatchCreateResult struct {
 	returnValue []models.Record
 	err         error
