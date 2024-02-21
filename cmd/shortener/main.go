@@ -67,7 +67,7 @@ func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 func configureRouter(
 	config configs.Config,
 	urlCreateService services.CreateURLService,
-	urlDeleter *services.BatchDeleter,
+	urlDeleter services.BatchDeleter,
 	s storage.Storage) chi.Router {
 
 	router := chi.NewRouter()

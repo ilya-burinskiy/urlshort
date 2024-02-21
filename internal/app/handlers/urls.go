@@ -205,7 +205,7 @@ func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(response)
 }
 
-func (h Handlers) DeleteUserURLs(urlDeleter *services.BatchDeleter) func(http.ResponseWriter, *http.Request) {
+func (h Handlers) DeleteUserURLs(urlDeleter services.BatchDeleter) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		encoder := json.NewEncoder(w)
