@@ -9,12 +9,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGetUserURLsHandler(t *testing.T) {
@@ -71,7 +72,7 @@ func TestGetUserURLsHandler(t *testing.T) {
 			name:       "responses with unauthorized status",
 			authCookie: &http.Cookie{},
 			want: want{
-				code: http.StatusUnauthorized,
+				code:     http.StatusUnauthorized,
 				response: toJSON(t, "http: named cookie not present") + "\n",
 			},
 		},
