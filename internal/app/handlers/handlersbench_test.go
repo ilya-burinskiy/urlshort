@@ -175,3 +175,42 @@ func BenchmarkBatchCreateURL(b *testing.B) {
 		response.Body.Close()
 	}
 }
+
+func BenchmarkGetUserURLs(b *testing.B) {
+	ctrl := gomock.NewController(b)
+	storageMock := mocks.NewMockStorage(ctrl)
+	handler := handlers.NewHandlers(defaultConfig, storageMock)
+	router := chi.NewRouter()
+	router.Use(
+		middlewares.ResponseLogger,
+		middlewares.RequestLogger,
+		middlewares.GzipCompress,
+		middleware.AllowContentEncoding("gzip"),
+		middleware.AllowContentType("application/json", "application/x-gzip"),
+		middlewares.Authenticate,
+	)
+	router.Get("/api/user/urls", handler.GetUserURLs)
+	testServer := httptest.NewServer(router)
+	defer testServer.Close()
+
+	authCookie := generateAuthCookie(b, models.User{ID: 1})
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		request, err := http.NewRequest(
+			http.MethodPost,
+			testServer.URL+"/api/user/urls",
+			nil,
+		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Accept-Encoding", "identity")
+		request.AddCookie(authCookie)
+		require.NoError(b, err)
+		b.StartTimer()
+
+		response, err := testServer.Client().Do(request)
+		b.StopTimer()
+		require.NoError(b, err)
+		response.Body.Close()
+	}
+}
