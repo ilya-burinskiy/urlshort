@@ -214,3 +214,53 @@ func BenchmarkGetUserURLs(b *testing.B) {
 		response.Body.Close()
 	}
 }
+
+func BenchmarkDeleteUserURLs(b *testing.B) {
+	ctrl := gomock.NewController(b)
+	storageMock := mocks.NewMockStorage(ctrl)
+	handler := handlers.NewHandlers(defaultConfig, storageMock)
+	urlDeleter := new(urlDeleterMock)
+	router := chi.NewRouter()
+	router.Use(
+		middlewares.ResponseLogger,
+		middlewares.RequestLogger,
+		middlewares.GzipCompress,
+		middleware.AllowContentEncoding("gzip"),
+		middleware.AllowContentType("application/json", "application/x-gzip"),
+		middlewares.Authenticate,
+	)
+	router.Delete("/api/user/urls", handler.DeleteUserURLs(urlDeleter))
+	testServer := httptest.NewServer(router)
+	defer testServer.Close()
+
+	records := make([]models.Record, 1000)
+	authCookie := generateAuthCookie(b, models.User{ID: 1})
+	for i := 0; i < 100; i++ {
+		records[i] = models.Record{
+			UserID:        1,
+			OriginalURL:   fmt.Sprintf("http://example%d.com", i),
+			CorrelationID: strconv.Itoa(i),
+		}
+	}
+	reqBody := toJSON(b, records)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		request, err := http.NewRequest(
+			http.MethodPost,
+			testServer.URL+"/api/user/urls",
+			strings.NewReader(reqBody),
+		)
+		require.NoError(b, err)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Accept-Encoding", "identity")
+		request.AddCookie(authCookie)
+		b.StartTimer()
+
+		response, err := testServer.Client().Do(request)
+		b.StopTimer()
+		require.NoError(b, err)
+		response.Body.Close()
+	}
+}
