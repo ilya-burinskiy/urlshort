@@ -3,7 +3,6 @@ package handlers_test
 import (
 	"encoding/json"
 	"net/http"
-	"testing"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
@@ -56,7 +55,7 @@ type urlCreaterBatchCreateResult struct {
 	err         error
 }
 
-func generateAuthCookie(t *testing.T, user models.User) *http.Cookie {
+func generateAuthCookie(t require.TestingT, user models.User) *http.Cookie {
 	jwtStr, err := auth.BuildJWTString(user)
 	require.NoError(t, err)
 
