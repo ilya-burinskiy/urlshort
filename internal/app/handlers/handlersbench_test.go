@@ -115,6 +115,8 @@ func BenchmarkGetOriginalURLHandler(b *testing.B) {
 			testServer.URL+"/123",
 			nil,
 		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Accept-Encoding", "identity")
 		require.NoError(b, err)
 		b.StartTimer()
 
