@@ -43,6 +43,8 @@ func BenchmarkCreateShortenedURLHandler(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		request, err := http.NewRequest(http.MethodPost, testServer.URL+"/", strings.NewReader(fmt.Sprintf("http://example%d.com", i)))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Accept-Encoding", "identity")
 		require.NoError(b, err)
 		b.StartTimer()
 
