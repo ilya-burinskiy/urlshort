@@ -81,6 +81,8 @@ func BenchmarkCreateURLFromJSON(b *testing.B) {
 				toJSON(b, map[string]string{"url": fmt.Sprintf("http://example%d.com", i)}),
 			),
 		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Accept-Encoding", "identity")
 		require.NoError(b, err)
 		b.StartTimer()
 
