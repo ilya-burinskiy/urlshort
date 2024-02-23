@@ -165,7 +165,6 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 			return
 		}
 
-		w.WriteHeader(http.StatusCreated)
 		response := make([]map[string]string, len(savedRecords))
 		for i := range records {
 			response[i] = map[string]string{
