@@ -6,6 +6,7 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 )
 
+// Inmemory storage
 type MapStorage struct {
 	records              []models.Record
 	indexOnOriginalURL   map[string]int
@@ -15,6 +16,7 @@ type MapStorage struct {
 	fs                   *FileStorage
 }
 
+// New inmemory storage
 func NewMapStorage(fs *FileStorage) *MapStorage {
 	return &MapStorage{
 		records:              make([]models.Record, 0),
@@ -26,6 +28,7 @@ func NewMapStorage(fs *FileStorage) *MapStorage {
 	}
 }
 
+// Find record by original URL
 func (ms *MapStorage) FindByOriginalURL(ctx context.Context, originalURL string) (models.Record, error) {
 	idx, ok := ms.indexOnOriginalURL[originalURL]
 	if !ok {
@@ -35,6 +38,7 @@ func (ms *MapStorage) FindByOriginalURL(ctx context.Context, originalURL string)
 	return ms.records[idx], nil
 }
 
+// Find record by shortened path
 func (ms *MapStorage) FindByShortenedPath(ctx context.Context, shortenedPath string) (models.Record, error) {
 	idx, ok := ms.indexOnShortenedPath[shortenedPath]
 	if !ok {
@@ -44,6 +48,7 @@ func (ms *MapStorage) FindByShortenedPath(ctx context.Context, shortenedPath str
 	return ms.records[idx], nil
 }
 
+// Find user records
 func (ms *MapStorage) FindByUser(ctx context.Context, user models.User) ([]models.Record, error) {
 	result := make([]models.Record, 0)
 	userRecordsIdx, ok := ms.indexOnUserID[user.ID]
@@ -58,6 +63,7 @@ func (ms *MapStorage) FindByUser(ctx context.Context, user models.User) ([]model
 	return result, nil
 }
 
+// Save record
 func (ms *MapStorage) Save(ctx context.Context, r models.Record) error {
 	_, ok := ms.indexOnOriginalURL[r.OriginalURL]
 	if ok {
@@ -77,6 +83,7 @@ func (ms *MapStorage) Save(ctx context.Context, r models.Record) error {
 	return nil
 }
 
+// Batch save records
 func (ms *MapStorage) BatchSave(ctx context.Context, records []models.Record) error {
 	for _, r := range records {
 		idx, ok := ms.indexOnOriginalURL[r.OriginalURL]
@@ -107,6 +114,7 @@ func (ms *MapStorage) BatchSave(ctx context.Context, records []models.Record) er
 	return nil
 }
 
+// Batch delete records
 func (ms *MapStorage) BatchDelete(ctx context.Context, records []models.Record) error {
 	for _, r := range records {
 		idx, ok := ms.indexOnShortenedPath[r.ShortenedPath]
@@ -128,6 +136,7 @@ func (ms *MapStorage) BatchDelete(ctx context.Context, records []models.Record) 
 	return nil
 }
 
+// Create user
 func (ms *MapStorage) CreateUser(ctx context.Context) (models.User, error) {
 	id := ms.userID
 	ms.userID++
@@ -135,6 +144,7 @@ func (ms *MapStorage) CreateUser(ctx context.Context) (models.User, error) {
 	return models.User{ID: id}, nil
 }
 
+// Dump inmemory storage to file
 func (ms *MapStorage) Dump() error {
 	if ms.fs != nil {
 		return ms.fs.Dump(ms)
@@ -143,6 +153,7 @@ func (ms *MapStorage) Dump() error {
 	return nil
 }
 
+// Restore inmemory storage from file
 func (ms *MapStorage) Restore(records []models.Record) {
 	ctx := context.TODO()
 	maxUserID := 0

@@ -9,14 +9,17 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 )
 
+// File storage
 type FileStorage struct {
 	filePath string
 }
 
+// New file storage
 func NewFileStorage(filePath string) *FileStorage {
 	return &FileStorage{filePath: filePath}
 }
 
+// Get records from file
 func (fs *FileStorage) Snapshot() ([]models.Record, error) {
 	file, err := os.OpenFile(fs.filePath, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
@@ -44,6 +47,7 @@ func (fs *FileStorage) Snapshot() ([]models.Record, error) {
 
 }
 
+// Save records to file
 func (fs *FileStorage) Dump(ms *MapStorage) error {
 	file, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
