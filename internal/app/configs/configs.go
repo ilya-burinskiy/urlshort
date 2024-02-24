@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+// Application configs
 type Config struct {
 	ServerAddress        string
 	ShortenedURLBaseAddr string
@@ -12,6 +13,7 @@ type Config struct {
 	DatabaseDSN          string
 }
 
+// Parse configs from flag variables. Environment variables override flag variables
 func Parse() Config {
 	config := Config{}
 	flag.StringVar(&config.ServerAddress, "a", "localhost:8080", "server's address")
@@ -39,10 +41,12 @@ func Parse() Config {
 	return config
 }
 
+// Use database storage
 func (c Config) UseDBStorage() bool {
 	return c.DatabaseDSN != ""
 }
 
+// Use file storage
 func (c Config) UseFileStorage() bool {
 	return c.FileStoragePath != ""
 }
