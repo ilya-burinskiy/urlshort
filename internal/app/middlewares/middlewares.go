@@ -19,6 +19,7 @@ type contextKey string
 
 const userIDKey contextKey = "user_id"
 
+// Gzip compress middleware
 func GzipCompress(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
@@ -43,6 +44,7 @@ func GzipCompress(h http.Handler) http.Handler {
 	})
 }
 
+// Response logging middleware
 func ResponseLogger(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		lw := logger.LoggingResponseWriter{
@@ -59,6 +61,7 @@ func ResponseLogger(h http.Handler) http.Handler {
 	})
 }
 
+// Request logging middleware
 func RequestLogger(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -72,6 +75,7 @@ func RequestLogger(h http.Handler) http.Handler {
 	})
 }
 
+// Authentication middleware
 func Authenticate(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		encoder := json.NewEncoder(w)
@@ -95,6 +99,7 @@ func Authenticate(h http.Handler) http.Handler {
 	})
 }
 
+// Get user ID from context
 func UserIDFromContext(ctx context.Context) (int, bool) {
 	userID, ok := ctx.Value(userIDKey).(int)
 	return userID, ok
