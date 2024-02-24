@@ -6,14 +6,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// Logger
 var Log *zap.Logger = zap.NewNop()
 
+// Logging response writer
 type LoggingResponseWriter struct {
 	http.ResponseWriter
 	ResponseStatus int
 	ResponseSize   int
 }
 
+// Write
 func (r *LoggingResponseWriter) Write(b []byte) (int, error) {
 	size, err := r.ResponseWriter.Write(b)
 	r.ResponseSize += size
@@ -21,11 +24,13 @@ func (r *LoggingResponseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
+// WriteHeader
 func (r *LoggingResponseWriter) WriteHeader(statusCode int) {
 	r.ResponseWriter.WriteHeader(statusCode)
 	r.ResponseStatus = statusCode
 }
 
+// Initialize Log
 func Initialize(level string) error {
 	lvl, err := zap.ParseAtomicLevel(level)
 	if err != nil {
