@@ -17,6 +17,7 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
+// Get original URL
 func (h Handlers) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 	shortenedPath := chi.URLParam(r, "id")
 	record, err := h.store.FindByShortenedPath(context.Background(), shortenedPath)
@@ -34,6 +35,7 @@ func (h Handlers) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 		ServeHTTP(w, r)
 }
 
+// Create shorened URL
 func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, err := h.GetUser(r)
@@ -77,6 +79,7 @@ func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(htt
 	}
 }
 
+// Create shortened URL from JSON
 func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -128,6 +131,7 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 	}
 }
 
+// Create multiple shortened URLs
 func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -177,6 +181,7 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 	}
 }
 
+// Get user shortened URLs
 func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	userID, _ := middlewares.UserIDFromContext(r.Context())
@@ -204,6 +209,7 @@ func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(response)
 }
 
+// Delete user shortened URLs
 func (h Handlers) DeleteUserURLs(urlDeleter services.BatchDeleter) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
