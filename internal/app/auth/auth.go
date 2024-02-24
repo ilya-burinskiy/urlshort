@@ -8,9 +8,13 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 )
 
+// token expiration time
 const TokenExp = time.Hour * 3
+
+// secret key
 const SecretKey = "secret"
 
+// build JWT
 func BuildJWTString(user models.User) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
