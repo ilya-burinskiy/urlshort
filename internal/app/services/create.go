@@ -9,10 +9,12 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
+// Interface for random hex strings generation
 type RandHexStringGenerator interface {
 	Call(n int) (string, error)
 }
 
+// Interface for creating shortened URLs
 type CreateURLService interface {
 	Create(string, models.User) (models.Record, error)
 	BatchCreate([]models.Record, models.User) ([]models.Record, error)
@@ -24,6 +26,7 @@ type createURLService struct {
 	store   storage.Storage
 }
 
+// NewCreateURLService
 func NewCreateURLService(pathLen int, randGen RandHexStringGenerator, store storage.Storage) CreateURLService {
 	return createURLService{
 		pathLen: pathLen,
@@ -32,6 +35,7 @@ func NewCreateURLService(pathLen int, randGen RandHexStringGenerator, store stor
 	}
 }
 
+// Create
 func (service createURLService) Create(originalURL string, user models.User) (models.Record, error) {
 	record, err := service.store.FindByOriginalURL(context.Background(), originalURL)
 	if err != nil {
@@ -56,6 +60,7 @@ func (service createURLService) Create(originalURL string, user models.User) (mo
 	return models.Record{}, storage.NewErrNotUnique(record)
 }
 
+// BatchCreate
 func (service createURLService) BatchCreate(records []models.Record, user models.User) ([]models.Record, error) {
 	for i := range records {
 		shortenedPath, err := service.randGen.Call(service.pathLen)

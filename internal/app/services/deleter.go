@@ -11,6 +11,7 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
+// BatchDeleter
 type BatchDeleter interface {
 	Delete(models.Record)
 	Run()
@@ -21,14 +22,17 @@ type batchDeleter struct {
 	ch    chan models.Record
 }
 
+// NewBatchDeleter
 func NewBatchDeleter(store storage.Storage) BatchDeleter {
 	return &batchDeleter{store: store, ch: make(chan models.Record, 1024)}
 }
 
+// Delete
 func (d *batchDeleter) Delete(record models.Record) {
 	d.ch <- record
 }
 
+// Run
 func (d *batchDeleter) Run() {
 	ticker := time.NewTicker(5 * time.Second)
 	var records []models.Record
