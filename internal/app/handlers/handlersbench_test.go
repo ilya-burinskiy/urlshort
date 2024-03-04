@@ -18,40 +18,36 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
+	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage/mocks"
 )
 
 func BenchmarkCreateShortenedURLHandler(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	storageMock := mocks.NewMockStorage(ctrl)
-	generatorMock := new(mockRandHexStringGenerator)
-	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	handler := handlers.NewHandlers(defaultConfig, storageMock)
-	router := chi.NewRouter()
-	router.Use(
-		middlewares.ResponseLogger,
-		middlewares.RequestLogger,
-		middlewares.GzipCompress,
-		middleware.AllowContentEncoding("gzip"),
-		middleware.AllowContentType("text/plain", "application/x-gzip"),
+	storageMock.EXPECT().
+		FindByOriginalURL(gomock.Any(), gomock.Any()).
+		AnyTimes().
+		Return(models.Record{}, storage.ErrNotFound)
+	storageMock.EXPECT().
+		Save(gomock.Any(), gomock.Any()).
+		AnyTimes().
+		Return(nil)
+
+	urlCreateService := services.NewCreateURLService(8, services.StdRandHexStringGenerator{}, storageMock)
+	handler := http.HandlerFunc(
+		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(urlCreateService),
 	)
-	router.Post("/", handler.CreateURL(urlCreateService))
-	testServer := httptest.NewServer(router)
-	defer testServer.Close()
+
+	authCookie := generateAuthCookie(b, models.User{ID: 1})
+	request, err := http.NewRequest(http.MethodPost, "/", strings.NewReader("http://example.com"))
+	require.NoError(b, err)
+	request.AddCookie(authCookie)
+	recorder := httptest.NewRecorder()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		request, err := http.NewRequest(http.MethodPost, testServer.URL+"/", strings.NewReader(fmt.Sprintf("http://example%d.com", i)))
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Accept-Encoding", "identity")
-		require.NoError(b, err)
-		b.StartTimer()
-
-		response, err := testServer.Client().Do(request)
-		b.StopTimer()
-		require.NoError(b, err)
-		response.Body.Close()
+		handler.ServeHTTP(recorder, request)
 	}
 }
 
