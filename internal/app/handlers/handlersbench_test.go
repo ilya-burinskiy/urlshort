@@ -137,39 +137,22 @@ func BenchmarkBatchCreateURL(b *testing.B) {
 func BenchmarkGetUserURLs(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	storageMock := mocks.NewMockStorage(ctrl)
-	handler := handlers.NewHandlers(defaultConfig, storageMock)
-	router := chi.NewRouter()
-	router.Use(
-		middlewares.ResponseLogger,
-		middlewares.RequestLogger,
-		middlewares.GzipCompress,
-		middleware.AllowContentEncoding("gzip"),
-		middleware.AllowContentType("application/json", "application/x-gzip"),
-		middlewares.Authenticate,
-	)
-	router.Get("/api/user/urls", handler.GetUserURLs)
-	testServer := httptest.NewServer(router)
-	defer testServer.Close()
+	userRecords := make([]models.Record, 100)
+	storageMock.EXPECT().
+		FindByUser(gomock.Any(), gomock.Any()).
+		AnyTimes().
+		Return(userRecords, nil)
+	handler := http.HandlerFunc(handlers.NewHandlers(defaultConfig, storageMock).GetUserURLs)
 
 	authCookie := generateAuthCookie(b, models.User{ID: 1})
+	request, err := http.NewRequest(http.MethodGet, "/api/user/urls", nil)
+	require.NoError(b, err)
+	request.AddCookie(authCookie)
+	recorder := httptest.NewRecorder()
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		request, err := http.NewRequest(
-			http.MethodPost,
-			testServer.URL+"/api/user/urls",
-			nil,
-		)
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Accept-Encoding", "identity")
-		request.AddCookie(authCookie)
-		require.NoError(b, err)
-		b.StartTimer()
-
-		response, err := testServer.Client().Do(request)
-		b.StopTimer()
-		require.NoError(b, err)
-		response.Body.Close()
+		handler.ServeHTTP(recorder, request)
 	}
 }
 
