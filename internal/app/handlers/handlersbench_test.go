@@ -84,36 +84,21 @@ func BenchmarkCreateURLFromJSON(b *testing.B) {
 func BenchmarkGetOriginalURLHandler(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	storageMock := mocks.NewMockStorage(ctrl)
-	handler := handlers.NewHandlers(defaultConfig, storageMock)
-	router := chi.NewRouter()
-	router.Use(
-		middlewares.ResponseLogger,
-		middlewares.RequestLogger,
-		middlewares.GzipCompress,
-		middleware.AllowContentEncoding("gzip"),
-		middleware.AllowContentType("text/plain", "application/x-gzip"),
+	storageMock.EXPECT().
+		FindByShortenedPath(gomock.Any(), gomock.Any()).
+		AnyTimes().
+		Return(models.Record{OriginalURL: "http://example.com"}, nil)
+
+	handler := http.HandlerFunc(
+		handlers.NewHandlers(defaultConfig, storageMock).GetOriginalURL,
 	)
-	router.Get("/api/shorten", handler.GetOriginalURL)
-	testServer := httptest.NewServer(router)
-	defer testServer.Close()
+	request, err := http.NewRequest(http.MethodPost, "/123", nil)
+	require.NoError(b, err)
+	recorder := httptest.NewRecorder()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		request, err := http.NewRequest(
-			http.MethodPost,
-			testServer.URL+"/123",
-			nil,
-		)
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Accept-Encoding", "identity")
-		require.NoError(b, err)
-		b.StartTimer()
-
-		response, err := testServer.Client().Do(request)
-		b.StopTimer()
-		require.NoError(b, err)
-		response.Body.Close()
+		handler.ServeHTTP(recorder, request)
 	}
 }
 
