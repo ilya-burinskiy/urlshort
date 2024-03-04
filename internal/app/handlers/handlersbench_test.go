@@ -134,51 +134,32 @@ func BenchmarkGetOriginalURLHandler(b *testing.B) {
 func BenchmarkBatchCreateURL(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	storageMock := mocks.NewMockStorage(ctrl)
-	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	urlCreateService := new(urlCreaterMock)
-	router := chi.NewRouter()
-	router.Use(
-		middlewares.ResponseLogger,
-		middlewares.RequestLogger,
-		middlewares.GzipCompress,
-		middleware.AllowContentEncoding("gzip"),
-		middleware.AllowContentType("application/json", "application/x-gzip"),
+	handler := http.HandlerFunc(
+		handlers.NewHandlers(defaultConfig, storageMock).BatchCreateURL(urlCreateService),
 	)
-	router.Post("/api/shorten/batch", handler.BatchCreateURL(urlCreateService))
-	testServer := httptest.NewServer(router)
-	defer testServer.Close()
 
-	records := make([]models.Record, 1000)
-	for i := 0; i < 100; i++ {
+	n := 100
+	records := make([]models.Record, n)
+	for i := 0; i < n; i++ {
 		records[i] = models.Record{
 			UserID:        1,
 			OriginalURL:   fmt.Sprintf("http://example%d.com", i),
 			CorrelationID: strconv.Itoa(i),
 		}
 	}
-
 	urlCreateService.On("BatchCreate", mock.Anything, mock.Anything).Return(records, nil)
+
 	reqBody := toJSON(b, records)
 	authCookie := generateAuthCookie(b, models.User{ID: 1})
+	request, err := http.NewRequest(http.MethodPost, "/api/shorten/batch", strings.NewReader(reqBody))
+	require.NoError(b, err)
+	request.AddCookie(authCookie)
+	recorder := httptest.NewRecorder()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		request, err := http.NewRequest(
-			http.MethodPost,
-			testServer.URL+"/api/shorten/batch",
-			strings.NewReader(reqBody),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Accept-Encoding", "identity")
-		request.AddCookie(authCookie)
-		require.NoError(b, err)
-		b.StartTimer()
-
-		response, err := testServer.Client().Do(request)
-		b.StopTimer()
-		require.NoError(b, err)
-		response.Body.Close()
+		handler.ServeHTTP(recorder, request)
 	}
 }
 
