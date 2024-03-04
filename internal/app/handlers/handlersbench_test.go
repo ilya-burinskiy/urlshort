@@ -54,40 +54,30 @@ func BenchmarkCreateShortenedURLHandler(b *testing.B) {
 func BenchmarkCreateURLFromJSON(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	storageMock := mocks.NewMockStorage(ctrl)
-	generatorMock := new(mockRandHexStringGenerator)
-	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
-	handler := handlers.NewHandlers(defaultConfig, storageMock)
-	router := chi.NewRouter()
-	router.Use(
-		middlewares.ResponseLogger,
-		middlewares.RequestLogger,
-		middlewares.GzipCompress,
-		middleware.AllowContentEncoding("gzip"),
-		middleware.AllowContentType("application/json", "application/x-gzip"),
+	storageMock.EXPECT().
+		FindByOriginalURL(gomock.Any(), gomock.Any()).
+		AnyTimes().
+		Return(models.Record{}, storage.ErrNotFound)
+	storageMock.EXPECT().
+		Save(gomock.Any(), gomock.Any()).
+		AnyTimes().
+		Return(nil)
+
+	urlCreateService := services.NewCreateURLService(8, services.StdRandHexStringGenerator{}, storageMock)
+	handler := http.HandlerFunc(
+		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(urlCreateService),
 	)
-	router.Post("/api/shorten", handler.CreateURL(urlCreateService))
-	testServer := httptest.NewServer(router)
-	defer testServer.Close()
+
+	authCookie := generateAuthCookie(b, models.User{ID: 1})
+	reqBody := toJSON(b, map[string]string{"url": "http://example.com"})
+	request, err := http.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(reqBody))
+	require.NoError(b, err)
+	request.AddCookie(authCookie)
+	recorder := httptest.NewRecorder()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		request, err := http.NewRequest(
-			http.MethodPost,
-			testServer.URL+"/",
-			strings.NewReader(
-				toJSON(b, map[string]string{"url": fmt.Sprintf("http://example%d.com", i)}),
-			),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Accept-Encoding", "identity")
-		require.NoError(b, err)
-		b.StartTimer()
-
-		response, err := testServer.Client().Do(request)
-		b.StopTimer()
-		require.NoError(b, err)
-		response.Body.Close()
+		handler.ServeHTTP(recorder, request)
 	}
 }
 
