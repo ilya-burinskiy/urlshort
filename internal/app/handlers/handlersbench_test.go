@@ -8,14 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
-	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
@@ -159,22 +156,12 @@ func BenchmarkGetUserURLs(b *testing.B) {
 func BenchmarkDeleteUserURLs(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	storageMock := mocks.NewMockStorage(ctrl)
-	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	urlDeleter := new(urlDeleterMock)
-	router := chi.NewRouter()
-	router.Use(
-		middlewares.ResponseLogger,
-		middlewares.RequestLogger,
-		middlewares.GzipCompress,
-		middleware.AllowContentEncoding("gzip"),
-		middleware.AllowContentType("application/json", "application/x-gzip"),
-		middlewares.Authenticate,
+	handler := http.HandlerFunc(
+		handlers.NewHandlers(defaultConfig, storageMock).DeleteUserURLs(urlDeleter),
 	)
-	router.Delete("/api/user/urls", handler.DeleteUserURLs(urlDeleter))
-	testServer := httptest.NewServer(router)
-	defer testServer.Close()
 
-	records := make([]models.Record, 1000)
+	records := make([]models.Record, 100)
 	authCookie := generateAuthCookie(b, models.User{ID: 1})
 	for i := 0; i < 100; i++ {
 		records[i] = models.Record{
@@ -184,24 +171,13 @@ func BenchmarkDeleteUserURLs(b *testing.B) {
 		}
 	}
 	reqBody := toJSON(b, records)
+	request, err := http.NewRequest(http.MethodDelete, "/api/user/urls", strings.NewReader(reqBody))
+	require.NoError(b, err)
+	request.AddCookie(authCookie)
+	recorder := httptest.NewRecorder()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		request, err := http.NewRequest(
-			http.MethodPost,
-			testServer.URL+"/api/user/urls",
-			strings.NewReader(reqBody),
-		)
-		require.NoError(b, err)
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Accept-Encoding", "identity")
-		request.AddCookie(authCookie)
-		b.StartTimer()
-
-		response, err := testServer.Client().Do(request)
-		b.StopTimer()
-		require.NoError(b, err)
-		response.Body.Close()
+		handler.ServeHTTP(recorder, request)
 	}
 }
