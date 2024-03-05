@@ -199,11 +199,15 @@ func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := make([]map[string]string, len(records))
+	type responseItem struct {
+		OriginalURL string `json:"original_url"`
+		ShortURL    string `json:"short_url"`
+	}
+	response := make([]responseItem, len(records))
 	for i := range records {
-		response[i] = map[string]string{
-			"short_url":    h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
-			"original_url": records[i].OriginalURL,
+		response[i] = responseItem{
+			OriginalURL: records[i].OriginalURL,
+			ShortURL:    h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
 		}
 	}
 	encoder.Encode(response)
