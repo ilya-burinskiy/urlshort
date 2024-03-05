@@ -169,11 +169,15 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 			return
 		}
 
-		response := make([]map[string]string, len(savedRecords))
+		type responseItem struct {
+			CorrelationID string `json:"correlation_id"`
+			ShortURL      string `json:"short_url"`
+		}
+		response := make([]responseItem, len(savedRecords))
 		for i := range records {
-			response[i] = map[string]string{
-				"correlation_id": savedRecords[i].CorrelationID,
-				"short_url":      h.config.ShortenedURLBaseAddr + "/" + savedRecords[i].ShortenedPath,
+			response[i] = responseItem{
+				CorrelationID: savedRecords[i].CorrelationID,
+				ShortURL:      h.config.ShortenedURLBaseAddr + "/" + savedRecords[i].ShortenedPath,
 			}
 		}
 		w.WriteHeader(http.StatusCreated)
