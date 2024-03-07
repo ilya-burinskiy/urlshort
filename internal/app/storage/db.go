@@ -149,28 +149,25 @@ func (db *DBStorage) Save(ctx context.Context, record models.Record) error {
 
 // Batch save records to database
 func (db *DBStorage) BatchSave(ctx context.Context, records []models.Record) error {
-	tx, err := db.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to batch save records: %w", err)
-	}
-
+	batch := &pgx.Batch{}
 	for _, r := range records {
-		_, err := tx.Exec(
-			ctx,
-			`INSERT INTO "urls" ("original_url", "shortened_path", "user_id") VALUES (@originalURL, @shortenedPath, @user_id)
-			 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = @shortenedPath`,
-			pgx.NamedArgs{
-				"originalURL":   r.OriginalURL,
-				"shortenedPath": r.ShortenedPath,
-				"user_id":       r.UserID,
-			},
+		batch.Queue(
+			`INSERT INTO "urls" ("original_url", "shortened_path", "user_id") VALUES ($1, $2, $3)
+			 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = $2`,
+			r.OriginalURL, r.ShortenedPath, r.UserID,
 		)
+	}
+	res := db.pool.SendBatch(ctx, batch)
+	defer res.Close()
+
+	for range records {
+		_, err := res.Exec()
 		if err != nil {
-			tx.Rollback(ctx)
-			return fmt.Errorf("failed to batch save records: %w", err)
+			return fmt.Errorf("failed to batch save: %w", err)
 		}
 	}
-	return tx.Commit(ctx)
+
+	return res.Close()
 }
 
 // Batch delete records from database
