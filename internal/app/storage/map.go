@@ -8,12 +8,12 @@ import (
 
 // Inmemory storage
 type MapStorage struct {
-	records              []models.Record
+	fs                   *FileStorage
 	indexOnOriginalURL   map[string]int
 	indexOnShortenedPath map[string]int
 	indexOnUserID        map[int]map[int]struct{}
+	records              []models.Record
 	userID               int
-	fs                   *FileStorage
 }
 
 // New inmemory storage
