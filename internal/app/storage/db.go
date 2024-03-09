@@ -107,7 +107,7 @@ func (db *DBStorage) FindByUser(ctx context.Context, user models.User) ([]models
 	result, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (models.Record, error) {
 		var originalURL, shortenedPath, correlationID string
 		var userID int
-		err := row.Scan(&originalURL, &shortenedPath, &correlationID, &userID)
+		err = row.Scan(&originalURL, &shortenedPath, &correlationID, &userID)
 
 		return models.Record{
 			OriginalURL:   originalURL,

@@ -40,7 +40,8 @@ func (service createURLService) Create(originalURL string, user models.User) (mo
 	record, err := service.store.FindByOriginalURL(context.Background(), originalURL)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
-			shortenedPath, err := service.randGen.Call(service.pathLen)
+			var shortenedPath string
+			shortenedPath, err = service.randGen.Call(service.pathLen)
 			if err != nil {
 				return models.Record{}, fmt.Errorf("failed to generate shortened path: %s", err.Error())
 			}

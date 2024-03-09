@@ -46,7 +46,8 @@ func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(htt
 				return
 			}
 
-			token, err := auth.BuildJWTString(user)
+			var token string
+			token, err = auth.BuildJWTString(user)
 			if err != nil {
 				http.Error(w, "failed to build JWT string: "+err.Error(), http.StatusInternalServerError)
 				return
@@ -100,7 +101,8 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 				return
 			}
 
-			token, err := auth.BuildJWTString(user)
+			var token string
+			token, err = auth.BuildJWTString(user)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				encoder.Encode("failed to build JWT string: " + err.Error())
@@ -153,7 +155,8 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 				return
 			}
 
-			token, err := auth.BuildJWTString(user)
+			var token string
+			token, err = auth.BuildJWTString(user)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				encoder.Encode("failed to build JWT string: " + err.Error())
