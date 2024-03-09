@@ -21,9 +21,9 @@ type CreateURLService interface {
 }
 
 type createURLService struct {
-	pathLen int
 	randGen RandHexStringGenerator
 	store   storage.Storage
+	pathLen int
 }
 
 // NewCreateURLService
