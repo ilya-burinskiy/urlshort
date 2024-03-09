@@ -16,8 +16,8 @@ import (
 
 // Handlers
 type Handlers struct {
-	config configs.Config
 	store  storage.Storage
+	config configs.Config
 }
 
 // New handlers
