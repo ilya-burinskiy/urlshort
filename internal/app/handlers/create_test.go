@@ -57,8 +57,8 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 	defer testServer.Close()
 
 	type generatorCallResult struct {
-		returnValue string
 		error       error
+		returnValue string
 	}
 	testCases := []struct {
 		name                string
