@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kisielk/errcheck/errcheck"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/appends"
@@ -105,6 +106,7 @@ func main() {
 		unusedresult.Analyzer,
 		unusedwrite.Analyzer,
 		usesgenerics.Analyzer,
+		errcheck.Analyzer,
 	}
 	analyzers = append(analyzers, staticcheckAnalyzers()...)
 	multichecker.Main(analyzers...)
