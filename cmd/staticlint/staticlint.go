@@ -1,6 +1,12 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/appends"
 	"golang.org/x/tools/go/analysis/passes/asmdecl"
@@ -48,10 +54,11 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unusedresult"
 	"golang.org/x/tools/go/analysis/passes/unusedwrite"
 	"golang.org/x/tools/go/analysis/passes/usesgenerics"
+	"honnef.co/go/tools/staticcheck"
 )
 
 func main() {
-	multichecker.Main(
+	analyzers := []*analysis.Analyzer{
 		appends.Analyzer,
 		asmdecl.Analyzer,
 		assign.Analyzer,
@@ -98,5 +105,44 @@ func main() {
 		unusedresult.Analyzer,
 		unusedwrite.Analyzer,
 		usesgenerics.Analyzer,
-	)
+	}
+	analyzers = append(analyzers, staticcheckAnalyzers()...)
+	multichecker.Main(analyzers...)
+}
+
+func staticcheckAnalyzers() []*analysis.Analyzer {
+	configFname := "staticcheck.json"
+	appfile, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to configure staticcheck: %s\n", err.Error())
+		return nil
+	}
+
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(appfile), configFname))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to read configs for staticcheck: %s\n", err.Error())
+		return nil
+	}
+
+	type configData struct {
+		Staticcheck []string
+	}
+	var config configData
+	if err = json.Unmarshal(data, &config); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse staticcheck configs: %s\n", err.Error())
+		return nil
+	}
+	checks := make(map[string]bool)
+	for _, c := range config.Staticcheck {
+		checks[c] = true
+	}
+
+	analyzers := make([]*analysis.Analyzer, 0, len(checks))
+	for _, v := range staticcheck.Analyzers {
+		if checks[v.Analyzer.Name] {
+			analyzers = append(analyzers, v.Analyzer)
+		}
+	}
+
+	return analyzers
 }
