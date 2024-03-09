@@ -13,9 +13,9 @@ import (
 )
 
 type want struct {
-	code        int
 	response    string
 	contentType string
+	code        int
 }
 
 type mockRandHexStringGenerator struct{ mock.Mock }
