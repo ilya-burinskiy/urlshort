@@ -18,8 +18,8 @@ type contextKey string
 
 const userIDKey contextKey = "user_id"
 
-func GzipCompress(h http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func GzipCompress(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
 		if strings.Contains(contentType, "gzip") {
 			compressReader, err := compress.NewReader(r.Body)
@@ -39,17 +39,17 @@ func GzipCompress(h http.HandlerFunc) http.HandlerFunc {
 		}
 
 		h.ServeHTTP(w, r)
-	}
+	})
 }
 
-func ResponseLogger(h http.HandlerFunc) http.HandlerFunc {
+func ResponseLogger(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		lw := logger.LoggingResponseWriter{
 			ResponseWriter: w,
 			ResponseStatus: 0,
 			ResponseSize:   0,
 		}
-		h(&lw, r)
+		h.ServeHTTP(&lw, r)
 		logger.Log.Info(
 			"response",
 			zap.Int("status", lw.ResponseStatus),
@@ -58,10 +58,10 @@ func ResponseLogger(h http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
-func RequestLogger(h http.HandlerFunc) http.HandlerFunc {
+func RequestLogger(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		h(w, r)
+		h.ServeHTTP(w, r)
 		duration := time.Since(start)
 		logger.Log.Info("got incoming HTTP request",
 			zap.String("method", r.Method),
@@ -71,7 +71,7 @@ func RequestLogger(h http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
-func Authenticate(h http.HandlerFunc) http.HandlerFunc {
+func Authenticate(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		encoder := json.NewEncoder(w)
 		cookie, err := r.Cookie("jwt")
@@ -90,7 +90,7 @@ func Authenticate(h http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
-		h(w, r.WithContext(ctx))
+		h.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 

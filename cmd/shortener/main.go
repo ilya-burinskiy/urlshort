@@ -8,9 +8,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
+	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"go.uber.org/zap"
@@ -32,7 +35,7 @@ func main() {
 	go urlDeleter.Run()
 
 	server := http.Server{
-		Handler: handlers.ShortenURLRouter(config, urlCreateService, urlDeleter, store),
+		Handler: configureRouter(config, urlCreateService, urlDeleter, store),
 		Addr:    config.ServerAddress,
 	}
 	exit := make(chan os.Signal, 1)
@@ -58,6 +61,40 @@ func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 	}
 
 	server.Shutdown(context.TODO())
+}
+
+func configureRouter(
+	config configs.Config,
+	urlCreateService services.CreateURLService,
+	urlDeleter *services.BatchDeleter,
+	s storage.Storage) chi.Router {
+
+	router := chi.NewRouter()
+	handlers := handlers.NewHandlers(config, s)
+	router.Use(
+		middlewares.ResponseLogger,
+		middlewares.RequestLogger,
+		middlewares.GzipCompress,
+		middleware.AllowContentEncoding("gzip"),
+	)
+	router.Group(func(router chi.Router) {
+		router.Use(middleware.AllowContentType("text/plain", "application/x-gzip"))
+		router.Post("/", handlers.CreateURL(urlCreateService))
+		router.Get("/{id}", handlers.GetOriginalURL)
+		router.Get("/ping", handlers.PingDB)
+	})
+	router.Group(func(router chi.Router) {
+		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
+		router.Post("/api/shorten", handlers.CreateURLFromJSON(urlCreateService))
+		router.Post("/api/shorten/batch", handlers.BatchCreateURL(urlCreateService))
+		router.Group(func(router chi.Router) {
+			router.Use(middlewares.Authenticate)
+			router.Get("/api/user/urls", handlers.GetUserURLs)
+			router.Delete("/api/user/urls", handlers.DeleteUserURLs(urlDeleter))
+		})
+	})
+
+	return router
 }
 
 func configureStorage(config configs.Config) storage.Storage {

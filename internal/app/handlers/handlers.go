@@ -5,65 +5,31 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
-	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
-	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 	"github.com/jackc/pgx/v5"
 )
 
-func ShortenURLRouter(
-	config configs.Config,
-	urlCreateService services.CreateURLService,
-	urlDeleter *services.BatchDeleter,
-	s storage.Storage) chi.Router {
-
-	router := chi.NewRouter()
-	handlers := handlers{
-		config:           config,
-		urlCreateService: urlCreateService,
-		urlDeleter:       urlDeleter,
-		s:                s,
-	}
-	router.Use(
-		handlerFunc2Handler(middlewares.ResponseLogger),
-		handlerFunc2Handler(middlewares.RequestLogger),
-		handlerFunc2Handler(middlewares.GzipCompress),
-		middleware.AllowContentEncoding("gzip"),
-	)
-	router.Group(func(router chi.Router) {
-		router.Use(middleware.AllowContentType("text/plain", "application/x-gzip"))
-		router.Post("/", handlers.create)
-		router.Get("/{id}", handlers.get)
-		router.Get("/ping", handlers.pingDB)
-	})
-	router.Group(func(router chi.Router) {
-		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
-		router.Post("/api/shorten", handlers.createFromJSON)
-		router.Post("/api/shorten/batch", handlers.batchCreate)
-		router.Group(func(router chi.Router) {
-			router.Use(handlerFunc2Handler(middlewares.Authenticate))
-			router.Get("/api/user/urls", handlers.getUserURLs)
-			router.Delete("/api/user/urls", handlers.deleteUserURLs)
-		})
-	})
-
-	return router
-}
-
-type handlers struct {
+type Handlers struct {
 	config           configs.Config
-	urlCreateService services.CreateURLService
-	urlDeleter       *services.BatchDeleter
-	s                storage.Storage
+	store            storage.Storage
 }
 
-func (h handlers) pingDB(w http.ResponseWriter, r *http.Request) {
+func NewHandlers(
+	config configs.Config,
+	store storage.Storage) Handlers {
+
+	return Handlers{
+		config:           config,
+		store:            store,
+	}
+
+}
+
+func (h Handlers) PingDB(w http.ResponseWriter, r *http.Request) {
 	conn, err := pgx.Connect(context.Background(), h.config.DatabaseDSN)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -75,7 +41,7 @@ func (h handlers) pingDB(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h handlers) getUser(r *http.Request) (models.User, error) {
+func (h Handlers) GetUser(r *http.Request) (models.User, error) {
 	cookie, err := r.Cookie("jwt")
 	if err != nil {
 		return models.User{}, err
@@ -102,10 +68,4 @@ func setJWTCookie(w http.ResponseWriter, token string) {
 			HttpOnly: true,
 		},
 	)
-}
-
-func handlerFunc2Handler(f func(http.HandlerFunc) http.HandlerFunc) func(http.Handler) http.Handler {
-	return func(h http.Handler) http.Handler {
-		return f(h.(http.HandlerFunc))
-	}
 }
