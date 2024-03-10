@@ -6,16 +6,17 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
-	"github.com/jackc/pgx/v5"
 )
 
 type Handlers struct {
-	config           configs.Config
-	store            storage.Storage
+	config configs.Config
+	store  storage.Storage
 }
 
 func NewHandlers(
@@ -23,8 +24,8 @@ func NewHandlers(
 	store storage.Storage) Handlers {
 
 	return Handlers{
-		config:           config,
-		store:            store,
+		config: config,
+		store:  store,
 	}
 
 }

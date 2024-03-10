@@ -11,10 +11,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage/mocks"
-	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkCreateShortenedURLHandler(b *testing.B) {

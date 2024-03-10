@@ -4,10 +4,11 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
-	"go.uber.org/zap"
 )
 
 type BatchDeleter struct {
