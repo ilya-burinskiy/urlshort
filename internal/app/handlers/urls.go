@@ -9,8 +9,10 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
+	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
@@ -68,7 +70,9 @@ func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(htt
 			var notUniqErr *storage.ErrNotUnique
 			if errors.As(err, &notUniqErr) {
 				w.WriteHeader(http.StatusConflict)
-				w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + notUniqErr.Record.ShortenedPath))
+				if _, err = w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + notUniqErr.Record.ShortenedPath)); err != nil {
+					logger.Log.Info("failed to write response", zap.Error(err))
+				}
 				return
 			}
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
@@ -76,7 +80,9 @@ func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(htt
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath))
+		if _, err = w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath)); err != nil {
+			logger.Log.Info("failed to write response", zap.Error(err))
+		}
 	}
 }
 
@@ -88,7 +94,9 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 		encoder := json.NewEncoder(w)
 		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			encoder.Encode("invalid request")
+			if err = encoder.Encode("invalid request"); err != nil {
+				logger.Log.Info("failed to encode response", zap.Error(err))
+			}
 			return
 		}
 
@@ -97,7 +105,9 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 			user, err = h.store.CreateUser(r.Context())
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				encoder.Encode("failed to create user: " + err.Error())
+				if err = encoder.Encode("failed to create user: " + err.Error()); err != nil {
+					logger.Log.Info("failed to encode response", zap.Error(err))
+				}
 				return
 			}
 
@@ -105,7 +115,9 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 			token, err = auth.BuildJWTString(user)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				encoder.Encode("failed to build JWT string: " + err.Error())
+				if err = encoder.Encode("failed to build JWT string: " + err.Error()); err != nil {
+					logger.Log.Info("failed to encode response", zap.Error(err))
+				}
 				return
 			}
 
@@ -117,19 +129,26 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 			var notUniqErr *storage.ErrNotUnique
 			if errors.As(err, &notUniqErr) {
 				w.WriteHeader(http.StatusConflict)
-				encoder.Encode(
+				err = encoder.Encode(
 					map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" +
 						notUniqErr.Record.ShortenedPath},
 				)
+				if err != nil {
+					logger.Log.Info("failed to encode response", zap.Error(err))
+				}
 				return
 			}
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			encoder.Encode("could not create shortened URL")
+			if err = encoder.Encode("could not create shortened URL"); err != nil {
+				logger.Log.Info("failed to encode response", zap.Error(err))
+			}
 			return
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		encoder.Encode(map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath})
+		if err = encoder.Encode(map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath}); err != nil {
+			logger.Log.Info("failed to encode response", zap.Error(err))
+		}
 	}
 }
 
@@ -142,7 +161,9 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 		err := json.NewDecoder(r.Body).Decode(&records)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			encoder.Encode(fmt.Sprintf("failed to parse request body: %s", err.Error()))
+			if err = encoder.Encode(fmt.Sprintf("failed to parse request body: %s", err.Error())); err != nil {
+				logger.Log.Info("failed to encode response", zap.Error(err))
+			}
 			return
 		}
 
@@ -151,7 +172,9 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 			user, err = h.store.CreateUser(r.Context())
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				encoder.Encode("failed to create user: " + err.Error())
+				if err = encoder.Encode("failed to create user: " + err.Error()); err != nil {
+					logger.Log.Info("failed to encode response", zap.Error(err))
+				}
 				return
 			}
 
@@ -159,7 +182,9 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 			token, err = auth.BuildJWTString(user)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				encoder.Encode("failed to build JWT string: " + err.Error())
+				if err = encoder.Encode("failed to build JWT string: " + err.Error()); err != nil {
+					logger.Log.Info("failed to encode response", zap.Error(err))
+				}
 				return
 			}
 
@@ -168,7 +193,9 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 		savedRecords, err := urlCreateService.BatchCreate(records, user)
 		if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			encoder.Encode(err.Error())
+			if err = encoder.Encode(err.Error()); err != nil {
+				logger.Log.Info("failed to encode response", zap.Error(err))
+			}
 			return
 		}
 
@@ -184,7 +211,9 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 			}
 		}
 		w.WriteHeader(http.StatusCreated)
-		encoder.Encode(response)
+		if err = encoder.Encode(response); err != nil {
+			logger.Log.Info("failed to encode response", zap.Error(err))
+		}
 	}
 }
 
@@ -197,7 +226,9 @@ func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	encoder := json.NewEncoder(w)
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		encoder.Encode(fmt.Sprintf("failed to fetch records: %s", err.Error()))
+		if err = encoder.Encode(fmt.Sprintf("failed to fetch records: %s", err.Error())); err != nil {
+			logger.Log.Info("failed to encode response", zap.Error(err))
+		}
 		return
 	}
 
@@ -217,7 +248,9 @@ func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 			ShortURL:    h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
 		}
 	}
-	encoder.Encode(response)
+	if err = encoder.Encode(response); err != nil {
+		logger.Log.Info("failed to encode response", zap.Error(err))
+	}
 }
 
 // Delete user shortened URLs
@@ -228,7 +261,9 @@ func (h Handlers) DeleteUserURLs(urlDeleter services.BatchDeleter) func(http.Res
 		var shortPaths []string
 		if err := json.NewDecoder(r.Body).Decode(&shortPaths); err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			encoder.Encode("invalid request body")
+			if err = encoder.Encode("invalid request body"); err != nil {
+				logger.Log.Info("failed to encode response", zap.Error(err))
+			}
 			return
 		}
 

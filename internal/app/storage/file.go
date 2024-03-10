@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
+	"go.uber.org/zap"
 )
 
 // File storage
@@ -57,7 +59,9 @@ func (fs *FileStorage) Dump(ms *MapStorage) error {
 	encoder := json.NewEncoder(file)
 	// NOTE: maybe define some Iter method for MapStorage
 	for _, r := range ms.records {
-		encoder.Encode(r)
+		if err = encoder.Encode(r); err != nil {
+			logger.Log.Info("failed to dump storage", zap.Error(err))
+		}
 	}
 	if err = file.Close(); err != nil {
 		return fmt.Errorf("could not dump storage: %w", err)

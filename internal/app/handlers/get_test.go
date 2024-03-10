@@ -107,7 +107,10 @@ func TestGetShortenedURLHandler(t *testing.T) {
 			response, err := transport.RoundTrip(request)
 			require.NoError(t, err)
 			resBody, err := io.ReadAll(response.Body)
-			defer response.Body.Close()
+			defer func() {
+				err = response.Body.Close()
+				require.NoError(t, err)
+			}()
 
 			assert.Equal(t, tc.want.code, response.StatusCode)
 			assert.NoError(t, err)

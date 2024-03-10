@@ -13,7 +13,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
+	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 )
 
@@ -158,7 +160,11 @@ func (db *DBStorage) BatchSave(ctx context.Context, records []models.Record) err
 		)
 	}
 	res := db.pool.SendBatch(ctx, batch)
-	defer res.Close()
+	defer func() {
+		if err := res.Close(); err != nil {
+			logger.Log.Info("closing batch result", zap.Error(err))
+		}
+	}()
 
 	for range records {
 		_, err := res.Exec()

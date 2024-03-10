@@ -82,7 +82,10 @@ func TestDeleterUserURLsHandler(t *testing.T) {
 
 			response, err := testServer.Client().Do(request)
 			require.NoError(t, err)
-			defer response.Body.Close()
+			defer func() {
+				err = response.Body.Close()
+				require.NoError(t, err)
+			}()
 
 			resBody, err := io.ReadAll(response.Body)
 			require.NoError(t, err)

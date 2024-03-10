@@ -3,7 +3,9 @@ package storage
 import (
 	"context"
 
+	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
+	"go.uber.org/zap"
 )
 
 // Inmemory storage
@@ -161,7 +163,9 @@ func (ms *MapStorage) Restore(records []models.Record) {
 		if r.UserID > maxUserID {
 			maxUserID = r.UserID
 		}
-		ms.Save(ctx, r)
+		if err := ms.Save(ctx, r); err != nil {
+			logger.Log.Info("failed to restore", zap.Error(err))
+		}
 	}
 	ms.userID = maxUserID + 1
 }
