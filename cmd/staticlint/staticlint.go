@@ -109,6 +109,7 @@ func main() {
 		usesgenerics.Analyzer,
 		errcheck.Analyzer,
 		bodyclose.Analyzer,
+		exitizer,
 	}
 	analyzers = append(analyzers, staticcheckAnalyzers()...)
 	multichecker.Main(analyzers...)
