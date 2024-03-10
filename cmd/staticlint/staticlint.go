@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/kisielk/errcheck/errcheck"
+	"github.com/timakin/bodyclose/passes/bodyclose"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/appends"
@@ -107,6 +108,7 @@ func main() {
 		unusedwrite.Analyzer,
 		usesgenerics.Analyzer,
 		errcheck.Analyzer,
+		bodyclose.Analyzer,
 	}
 	analyzers = append(analyzers, staticcheckAnalyzers()...)
 	multichecker.Main(analyzers...)
