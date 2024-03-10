@@ -9,25 +9,34 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
+// Interface for random hex strings generation
 type RandHexStringGenerator interface {
 	Call(n int) (string, error)
 }
 
-type CreateURLService struct {
+// Interface for creating shortened URLs
+type CreateURLService interface {
+	Create(string, models.User) (models.Record, error)
+	BatchCreate([]models.Record, models.User) ([]models.Record, error)
+}
+
+type createURLService struct {
 	pathLen int
 	randGen RandHexStringGenerator
 	store   storage.Storage
 }
 
+// NewCreateURLService
 func NewCreateURLService(pathLen int, randGen RandHexStringGenerator, store storage.Storage) CreateURLService {
-	return CreateURLService{
+	return createURLService{
 		pathLen: pathLen,
 		randGen: randGen,
 		store:   store,
 	}
 }
 
-func (service CreateURLService) Create(originalURL string, user models.User) (models.Record, error) {
+// Create
+func (service createURLService) Create(originalURL string, user models.User) (models.Record, error) {
 	record, err := service.store.FindByOriginalURL(context.Background(), originalURL)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
@@ -51,11 +60,12 @@ func (service CreateURLService) Create(originalURL string, user models.User) (mo
 	return models.Record{}, storage.NewErrNotUnique(record)
 }
 
-func (service CreateURLService) BatchCreate(records []models.Record, user models.User) error {
+// BatchCreate
+func (service createURLService) BatchCreate(records []models.Record, user models.User) ([]models.Record, error) {
 	for i := range records {
 		shortenedPath, err := service.randGen.Call(service.pathLen)
 		if err != nil {
-			return fmt.Errorf("failed to generate shortened path for \"%s\": %s",
+			return nil, fmt.Errorf("failed to generate shortened path for \"%s\": %s",
 				records[i].OriginalURL, err.Error())
 		}
 		records[i].ShortenedPath = shortenedPath
@@ -64,8 +74,8 @@ func (service CreateURLService) BatchCreate(records []models.Record, user models
 
 	err := service.store.BatchSave(context.Background(), records)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return records, nil
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
+// Get original URL
 func (h Handlers) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 	shortenedPath := chi.URLParam(r, "id")
 	record, err := h.store.FindByShortenedPath(context.Background(), shortenedPath)
@@ -34,6 +35,7 @@ func (h Handlers) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 		ServeHTTP(w, r)
 }
 
+// Create shorened URL
 func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, err := h.GetUser(r)
@@ -77,6 +79,7 @@ func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(htt
 	}
 }
 
+// Create shortened URL from JSON
 func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -128,6 +131,7 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 	}
 }
 
+// Create multiple shortened URLs
 func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -158,19 +162,22 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 
 			setJWTCookie(w, token)
 		}
-		err = urlCreateService.BatchCreate(records, user)
+		savedRecords, err := urlCreateService.BatchCreate(records, user)
 		if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			encoder.Encode(err.Error())
 			return
 		}
 
-		w.WriteHeader(http.StatusCreated)
-		response := make([]map[string]string, len(records))
+		type responseItem struct {
+			CorrelationID string `json:"correlation_id"`
+			ShortURL      string `json:"short_url"`
+		}
+		response := make([]responseItem, len(savedRecords))
 		for i := range records {
-			response[i] = map[string]string{
-				"correlation_id": records[i].CorrelationID,
-				"short_url":      h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
+			response[i] = responseItem{
+				CorrelationID: savedRecords[i].CorrelationID,
+				ShortURL:      h.config.ShortenedURLBaseAddr + "/" + savedRecords[i].ShortenedPath,
 			}
 		}
 		w.WriteHeader(http.StatusCreated)
@@ -178,6 +185,7 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 	}
 }
 
+// Get user shortened URLs
 func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	userID, _ := middlewares.UserIDFromContext(r.Context())
@@ -195,17 +203,22 @@ func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := make([]map[string]string, len(records))
+	type responseItem struct {
+		OriginalURL string `json:"original_url"`
+		ShortURL    string `json:"short_url"`
+	}
+	response := make([]responseItem, len(records))
 	for i := range records {
-		response[i] = map[string]string{
-			"short_url":    h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
-			"original_url": records[i].OriginalURL,
+		response[i] = responseItem{
+			OriginalURL: records[i].OriginalURL,
+			ShortURL:    h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
 		}
 	}
 	encoder.Encode(response)
 }
 
-func (h Handlers) DeleteUserURLs(urlDeleter *services.BatchDeleter) func(http.ResponseWriter, *http.Request) {
+// Delete user shortened URLs
+func (h Handlers) DeleteUserURLs(urlDeleter services.BatchDeleter) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		encoder := json.NewEncoder(w)

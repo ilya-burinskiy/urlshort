@@ -14,11 +14,13 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
+// Handlers
 type Handlers struct {
 	config configs.Config
 	store  storage.Storage
 }
 
+// New handlers
 func NewHandlers(
 	config configs.Config,
 	store storage.Storage) Handlers {
@@ -30,6 +32,7 @@ func NewHandlers(
 
 }
 
+// Ping database
 func (h Handlers) PingDB(w http.ResponseWriter, r *http.Request) {
 	conn, err := pgx.Connect(context.Background(), h.config.DatabaseDSN)
 	if err != nil {
@@ -42,6 +45,7 @@ func (h Handlers) PingDB(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// Get user from jwt cookie
 func (h Handlers) GetUser(r *http.Request) (models.User, error) {
 	cookie, err := r.Cookie("jwt")
 	if err != nil {

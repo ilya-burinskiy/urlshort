@@ -11,20 +11,29 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
-type BatchDeleter struct {
+// BatchDeleter
+type BatchDeleter interface {
+	Delete(models.Record)
+	Run()
+}
+
+type batchDeleter struct {
 	store storage.Storage
 	ch    chan models.Record
 }
 
-func NewBatchDeleter(store storage.Storage) *BatchDeleter {
-	return &BatchDeleter{store: store, ch: make(chan models.Record, 1024)}
+// NewBatchDeleter
+func NewBatchDeleter(store storage.Storage) BatchDeleter {
+	return &batchDeleter{store: store, ch: make(chan models.Record, 1024)}
 }
 
-func (d *BatchDeleter) Delete(record models.Record) {
+// Delete
+func (d *batchDeleter) Delete(record models.Record) {
 	d.ch <- record
 }
 
-func (d *BatchDeleter) Run() {
+// Run
+func (d *batchDeleter) Run() {
 	ticker := time.NewTicker(5 * time.Second)
 	var records []models.Record
 

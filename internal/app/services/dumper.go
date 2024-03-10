@@ -6,11 +6,13 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
+// StorageDumber
 type StorageDumper struct {
 	ms      *storage.MapStorage
 	timeout time.Duration
 }
 
+// NewStorageDumper
 func NewStorageDumper(ms *storage.MapStorage, timeout time.Duration) StorageDumper {
 	return StorageDumper{
 		ms:      ms,
@@ -18,6 +20,7 @@ func NewStorageDumper(ms *storage.MapStorage, timeout time.Duration) StorageDump
 	}
 }
 
+// Start
 func (d StorageDumper) Start() {
 	go func() {
 		for {

@@ -17,10 +17,12 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 )
 
+// PostgreSQL storage
 type DBStorage struct {
 	pool *pgxpool.Pool
 }
 
+// New PostgreSQL storage
 func NewDBStorage(dsn string) (*DBStorage, error) {
 	if err := runMigrations(dsn); err != nil {
 		return nil, fmt.Errorf("failed to run DB migrations: %w", err)
@@ -36,6 +38,7 @@ func NewDBStorage(dsn string) (*DBStorage, error) {
 	}, nil
 }
 
+// Find record by original URL
 func (db *DBStorage) FindByOriginalURL(ctx context.Context, originalURL string) (models.Record, error) {
 	row := db.pool.QueryRow(
 		ctx,
@@ -61,6 +64,7 @@ func (db *DBStorage) FindByOriginalURL(ctx context.Context, originalURL string) 
 	}, nil
 }
 
+// Find record by shortened path
 func (db *DBStorage) FindByShortenedPath(ctx context.Context, shortenedPath string) (models.Record, error) {
 	row := db.pool.QueryRow(
 		ctx,
@@ -87,6 +91,7 @@ func (db *DBStorage) FindByShortenedPath(ctx context.Context, shortenedPath stri
 	}, nil
 }
 
+// Find user records
 func (db *DBStorage) FindByUser(ctx context.Context, user models.User) ([]models.Record, error) {
 	rows, err := db.pool.Query(
 		ctx,
@@ -118,6 +123,7 @@ func (db *DBStorage) FindByUser(ctx context.Context, user models.User) ([]models
 	return result, nil
 }
 
+// Save record to database
 func (db *DBStorage) Save(ctx context.Context, record models.Record) error {
 	_, err := db.pool.Exec(
 		ctx,
@@ -141,31 +147,30 @@ func (db *DBStorage) Save(ctx context.Context, record models.Record) error {
 	return nil
 }
 
+// Batch save records to database
 func (db *DBStorage) BatchSave(ctx context.Context, records []models.Record) error {
-	tx, err := db.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to batch save records: %w", err)
-	}
-
+	batch := &pgx.Batch{}
 	for _, r := range records {
-		_, err := tx.Exec(
-			ctx,
-			`INSERT INTO "urls" ("original_url", "shortened_path", "user_id") VALUES (@originalURL, @shortenedPath, @user_id)
-			 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = @shortenedPath`,
-			pgx.NamedArgs{
-				"originalURL":   r.OriginalURL,
-				"shortenedPath": r.ShortenedPath,
-				"user_id":       r.UserID,
-			},
+		batch.Queue(
+			`INSERT INTO "urls" ("original_url", "shortened_path", "user_id") VALUES ($1, $2, $3)
+			 ON CONFLICT ("original_url") DO UPDATE SET "shortened_path" = $2`,
+			r.OriginalURL, r.ShortenedPath, r.UserID,
 		)
+	}
+	res := db.pool.SendBatch(ctx, batch)
+	defer res.Close()
+
+	for range records {
+		_, err := res.Exec()
 		if err != nil {
-			tx.Rollback(ctx)
-			return fmt.Errorf("failed to batch save records: %w", err)
+			return fmt.Errorf("failed to batch save: %w", err)
 		}
 	}
-	return tx.Commit(ctx)
+
+	return res.Close()
 }
 
+// Batch delete records from database
 func (db *DBStorage) BatchDelete(ctx context.Context, records []models.Record) error {
 	batch := pgx.Batch{}
 	for _, r := range records {
@@ -183,6 +188,7 @@ func (db *DBStorage) BatchDelete(ctx context.Context, records []models.Record) e
 	return nil
 }
 
+// Create user
 func (db *DBStorage) CreateUser(ctx context.Context) (models.User, error) {
 	row := db.pool.QueryRow(ctx, `INSERT INTO "users" ("id") VALUES (DEFAULT) RETURNING "id"`)
 	user := models.User{}
@@ -194,6 +200,7 @@ func (db *DBStorage) CreateUser(ctx context.Context) (models.User, error) {
 	return user, nil
 }
 
+// Close connection to database
 func (db *DBStorage) Close() {
 	db.pool.Close()
 }
