@@ -20,11 +20,18 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
 func main() {
 	config := configs.Parse()
 	if err := logger.Initialize("info"); err != nil {
 		panic(err)
 	}
+	showBuildInfo()
 
 	store := configureStorage(config)
 	urlCreateService := services.NewCreateURLService(
@@ -123,4 +130,19 @@ func configureStorage(config configs.Config) storage.Storage {
 	}
 
 	return store
+}
+
+func showBuildInfo() {
+	if buildVersion == "" {
+		buildVersion = "N/A"
+	}
+	if buildDate == "" {
+		buildDate = "N/A"
+	}
+	if buildCommit == "" {
+		buildCommit = "N/A"
+	}
+	logger.Log.Info("build info", zap.String("build version", buildVersion))
+	logger.Log.Info("build info", zap.String("build date", buildDate))
+	logger.Log.Info("build info", zap.String("build commit", buildCommit))
 }
