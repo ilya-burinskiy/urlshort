@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ilya-burinskiy/urlshort/pkg/exitizer"
+
 	"github.com/kisielk/errcheck/errcheck"
 	"github.com/timakin/bodyclose/passes/bodyclose"
 	"golang.org/x/tools/go/analysis"
@@ -255,7 +257,7 @@ func main() {
 		usesgenerics.Analyzer,
 		errcheck.Analyzer,
 		bodyclose.Analyzer,
-		exitizer,
+		exitizer.Analyzer,
 	}
 	analyzers = append(analyzers, staticcheckAnalyzers()...)
 	multichecker.Main(analyzers...)
