@@ -21,9 +21,9 @@ import (
 )
 
 var (
-	buildVersion string
-	buildDate    string
-	buildCommit  string
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
 )
 
 func main() {
@@ -133,15 +133,6 @@ func configureStorage(config configs.Config) storage.Storage {
 }
 
 func showBuildInfo() {
-	if buildVersion == "" {
-		buildVersion = "N/A"
-	}
-	if buildDate == "" {
-		buildDate = "N/A"
-	}
-	if buildCommit == "" {
-		buildCommit = "N/A"
-	}
 	logger.Log.Info("build info", zap.String("build version", buildVersion))
 	logger.Log.Info("build info", zap.String("build date", buildDate))
 	logger.Log.Info("build info", zap.String("build commit", buildCommit))
