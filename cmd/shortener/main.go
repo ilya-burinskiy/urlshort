@@ -61,7 +61,9 @@ func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 		s.Close()
 	}
 
-	server.Shutdown(context.TODO())
+	if err := server.Shutdown(context.TODO()); err != nil {
+		logger.Log.Info("failed to shutdown", zap.Error(err))
+	}
 }
 
 func configureRouter(

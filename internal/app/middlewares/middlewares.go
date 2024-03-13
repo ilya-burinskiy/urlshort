@@ -30,14 +30,22 @@ func GzipCompress(h http.Handler) http.Handler {
 				return
 			}
 			r.Body = compressReader
-			defer compressReader.Close()
+			defer func() {
+				if err := compressReader.Close(); err != nil {
+					logger.Log.Info("compressed reader middleware", zap.Error(err))
+				}
+			}()
 		}
 
 		acceptEncoding := r.Header.Get("Accept-Encoding")
 		if strings.Contains(acceptEncoding, "gzip") {
 			responseWriterWithCompress := compress.NewWriter(w)
 			w = responseWriterWithCompress
-			defer responseWriterWithCompress.Close()
+			defer func() {
+				if err := responseWriterWithCompress.Close(); err != nil {
+					logger.Log.Info("compressed writer middleware", zap.Error(err))
+				}
+			}()
 		}
 
 		h.ServeHTTP(w, r)
@@ -82,7 +90,9 @@ func Authenticate(h http.Handler) http.Handler {
 		cookie, err := r.Cookie("jwt")
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			encoder.Encode(err.Error())
+			if err = encoder.Encode(err.Error()); err != nil {
+				logger.Log.Info("authenticate middleware", zap.Error(err))
+			}
 			return
 		}
 		claims := &auth.Claims{}
@@ -91,7 +101,9 @@ func Authenticate(h http.Handler) http.Handler {
 		})
 		if err != nil || !token.Valid {
 			w.WriteHeader(http.StatusUnauthorized)
-			encoder.Encode("invalid jwt token")
+			if err = encoder.Encode("invalid jwt token"); err != nil {
+				logger.Log.Info("authenticate middleware", zap.Error(err))
+			}
 			return
 		}
 		ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)

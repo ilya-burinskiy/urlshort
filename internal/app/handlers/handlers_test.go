@@ -13,9 +13,9 @@ import (
 )
 
 type want struct {
-	code        int
 	response    string
 	contentType string
+	code        int
 }
 
 type mockRandHexStringGenerator struct{ mock.Mock }
@@ -51,8 +51,8 @@ func (m *urlCreaterMock) BatchCreate(records []models.Record, user models.User) 
 }
 
 type urlCreaterBatchCreateResult struct {
-	returnValue []models.Record
 	err         error
+	returnValue []models.Record
 }
 
 func generateAuthCookie(t require.TestingT, user models.User) *http.Cookie {

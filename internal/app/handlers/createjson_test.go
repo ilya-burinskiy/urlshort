@@ -57,8 +57,8 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 	defer testServer.Close()
 
 	type generatorCallResult struct {
-		returnValue string
 		error       error
+		returnValue string
 	}
 	testCases := []struct {
 		name                string
@@ -155,7 +155,10 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 			response, err := testServer.Client().Do(request)
 			require.NoError(t, err)
 			responseBody, err := io.ReadAll(response.Body)
-			defer response.Body.Close()
+			defer func() {
+				err = response.Body.Close()
+				require.NoError(t, err)
+			}()
 
 			assert.NoError(t, err)
 			assert.Equal(t, tc.want.code, response.StatusCode)
