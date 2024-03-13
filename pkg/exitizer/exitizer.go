@@ -1,4 +1,4 @@
-package main
+package exitizer
 
 import (
 	"go/ast"
@@ -7,7 +7,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-var exitizer = &analysis.Analyzer{
+// Analyzer checks for os.Exit calls in main function
+var Analyzer = &analysis.Analyzer{
 	Name: "exitizer",
 	Doc:  "check for os.Exit calls in main function",
 	Run:  run,
