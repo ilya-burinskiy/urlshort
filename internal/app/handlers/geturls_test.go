@@ -62,8 +62,8 @@ func TestGetUserURLsHandler(t *testing.T) {
 				response: toJSON(
 					t,
 					[]map[string]string{
-						{"short_url": defaultConfig.ShortenedURLBaseAddr + "/1", "original_url": "http://example1.com"},
-						{"short_url": defaultConfig.ShortenedURLBaseAddr + "/2", "original_url": "http://example2.com"},
+						{"short_url": defaultConfig.BaseURL + "/1", "original_url": "http://example1.com"},
+						{"short_url": defaultConfig.BaseURL + "/2", "original_url": "http://example2.com"},
 					},
 				) + "\n",
 			},

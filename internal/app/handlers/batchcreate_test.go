@@ -71,8 +71,8 @@ func TestBatchCreateURLTest(t *testing.T) {
 				response: toJSON(
 					t,
 					[]map[string]string{
-						{"correlation_id": "1", "short_url": defaultConfig.ShortenedURLBaseAddr + "/" + "1"},
-						{"correlation_id": "2", "short_url": defaultConfig.ShortenedURLBaseAddr + "/" + "2"},
+						{"correlation_id": "1", "short_url": defaultConfig.BaseURL + "/" + "1"},
+						{"correlation_id": "2", "short_url": defaultConfig.BaseURL + "/" + "2"},
 					},
 				) + "\n",
 			},
