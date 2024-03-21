@@ -48,7 +48,7 @@ func main() {
 		Addr:    config.ServerAddress,
 	}
 	exit := make(chan os.Signal, 1)
-	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	go onExit(exit, &server, store)
 
 	var serveErr error
