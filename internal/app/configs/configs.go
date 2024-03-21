@@ -19,19 +19,13 @@ type Config struct {
 
 // Parse configs
 func Parse() Config {
-	var (
-		flagServerAddress   string
-		flagBaseURL         string
-		flagFileStoragePath string
-		flagDatabaseDSN     string
-		flagEnableHTTPS     bool
-		configFilePath      string
-	)
-	flag.StringVar(&flagServerAddress, "a", "", "server's address")
-	flag.StringVar(&flagBaseURL, "b", "", "base address of the resulting shortened URL")
-	flag.StringVar(&flagFileStoragePath, "f", "", "file storage path")
-	flag.StringVar(&flagDatabaseDSN, "d", "", "database URL")
-	flag.BoolVar(&flagEnableHTTPS, "s", false, "enable HTTPS")
+	flagConfigs := Config{}
+	var configFilePath string
+	flag.StringVar(&flagConfigs.ServerAddress, "a", "", "server's address")
+	flag.StringVar(&flagConfigs.BaseURL, "b", "", "base address of the resulting shortened URL")
+	flag.StringVar(&flagConfigs.FileStoragePath, "f", "", "file storage path")
+	flag.StringVar(&flagConfigs.DatabaseDSN, "d", "", "database URL")
+	flag.BoolVar(&flagConfigs.EnableHTTPS, "s", false, "enable HTTPS")
 	flag.StringVar(&configFilePath, "c", "", "file path with json application configs")
 	flag.Parse()
 
@@ -39,50 +33,60 @@ func Parse() Config {
 		configFilePath = envConfigFilePath
 	}
 
-	config := Config{ServerAddress: "localhost:8080", BaseURL: "http://localhost:8080"}
+	defaultConfigs := Config{ServerAddress: "localhost:8080", BaseURL: "http://localhost:8080"}
+	configs := Config{}
+	applyConfigs(&configs, defaultConfigs)
+	applyConfigs(&configs, jsonConfigs(configFilePath))
+	applyConfigs(&configs, flagConfigs)
+	applyConfigs(&configs, envConfigs())
+
+	return configs
+}
+
+func applyConfigs(dst *Config, src Config) {
+	if src.ServerAddress != "" {
+		dst.ServerAddress = src.ServerAddress
+	}
+	if src.BaseURL != "" {
+		dst.BaseURL = src.BaseURL
+	}
+	if src.FileStoragePath != "" {
+		dst.FileStoragePath = src.FileStoragePath
+	}
+	if src.DatabaseDSN != "" {
+		dst.DatabaseDSN = src.DatabaseDSN
+	}
+	dst.EnableHTTPS = src.EnableHTTPS
+}
+
+func jsonConfigs(configFilePath string) Config {
+	configs := Config{}
 	configData, err := os.ReadFile(configFilePath)
 	if err == nil {
-		if err = json.Unmarshal(configData, &config); err != nil {
+		if err = json.Unmarshal(configData, &configs); err != nil {
 			log.Printf("failed to parse configs: %s\n", err.Error())
 		}
 	} else {
 		log.Printf("failed to read configs: %s\n", err.Error())
 	}
 
-	if flagServerAddress != "" {
-		config.ServerAddress = flagServerAddress
-	}
-	if flagBaseURL != "" {
-		config.BaseURL = flagBaseURL
-	}
-	if flagFileStoragePath != "" {
-		config.FileStoragePath = flagFileStoragePath
-	}
-	if flagDatabaseDSN != "" {
-		config.DatabaseDSN = flagDatabaseDSN
+	return configs
+}
+
+func envConfigs() Config {
+	configs := Config{
+		ServerAddress:   os.Getenv("SERVER_ADDRESS"),
+		BaseURL:         os.Getenv("BASE_URL"),
+		FileStoragePath: os.Getenv("FILE_STORAGE_PATH"),
+		DatabaseDSN:     os.Getenv("DATABASE_DSN"),
 	}
 
-	if envServerAddress := os.Getenv("SERVER_ADDRESS"); envServerAddress != "" {
-		config.ServerAddress = envServerAddress
-	}
-	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
-		config.BaseURL = envBaseURL
-	}
-	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
-		config.FileStoragePath = envFileStoragePath
-	}
-	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
-		config.DatabaseDSN = envDatabaseDSN
-	}
-	envEnableHTTPS, err := strconv.ParseBool(os.Getenv("ENABLE_HTTPS"))
-
-	if err == nil {
-		config.EnableHTTPS = config.EnableHTTPS || flagEnableHTTPS || envEnableHTTPS
-	} else {
-		config.EnableHTTPS = config.EnableHTTPS || flagEnableHTTPS
+	enableHTTPS, err := strconv.ParseBool(os.Getenv("ENABLE_HTTPS"))
+	if err != nil {
+		configs.EnableHTTPS = enableHTTPS
 	}
 
-	return config
+	return configs
 }
 
 // Use database storage
