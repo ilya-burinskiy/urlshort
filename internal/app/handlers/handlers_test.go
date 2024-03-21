@@ -26,9 +26,9 @@ func (m *mockRandHexStringGenerator) Call(n int) (string, error) {
 }
 
 var defaultConfig = configs.Config{
-	ShortenedURLBaseAddr: "http://localhost:8080",
-	ServerAddress:        "http://localhost:8080",
-	FileStoragePath:      "storage",
+	BaseURL:         "http://localhost:8080",
+	ServerAddress:   "http://localhost:8080",
+	FileStoragePath: "storage",
 }
 
 func toJSON(t require.TestingT, v interface{}) string {

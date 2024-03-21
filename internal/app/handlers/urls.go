@@ -70,7 +70,7 @@ func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(htt
 			var notUniqErr *storage.ErrNotUnique
 			if errors.As(err, &notUniqErr) {
 				w.WriteHeader(http.StatusConflict)
-				if _, err = w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + notUniqErr.Record.ShortenedPath)); err != nil {
+				if _, err = w.Write([]byte(h.config.BaseURL + "/" + notUniqErr.Record.ShortenedPath)); err != nil {
 					logger.Log.Info("failed to write response", zap.Error(err))
 				}
 				return
@@ -80,7 +80,7 @@ func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(htt
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		if _, err = w.Write([]byte(h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath)); err != nil {
+		if _, err = w.Write([]byte(h.config.BaseURL + "/" + record.ShortenedPath)); err != nil {
 			logger.Log.Info("failed to write response", zap.Error(err))
 		}
 	}
@@ -130,7 +130,7 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 			if errors.As(err, &notUniqErr) {
 				w.WriteHeader(http.StatusConflict)
 				err = encoder.Encode(
-					map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" +
+					map[string]string{"result": h.config.BaseURL + "/" +
 						notUniqErr.Record.ShortenedPath},
 				)
 				if err != nil {
@@ -146,7 +146,7 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		if err = encoder.Encode(map[string]string{"result": h.config.ShortenedURLBaseAddr + "/" + record.ShortenedPath}); err != nil {
+		if err = encoder.Encode(map[string]string{"result": h.config.BaseURL + "/" + record.ShortenedPath}); err != nil {
 			logger.Log.Info("failed to encode response", zap.Error(err))
 		}
 	}
@@ -207,7 +207,7 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 		for i := range records {
 			response[i] = responseItem{
 				CorrelationID: savedRecords[i].CorrelationID,
-				ShortURL:      h.config.ShortenedURLBaseAddr + "/" + savedRecords[i].ShortenedPath,
+				ShortURL:      h.config.BaseURL + "/" + savedRecords[i].ShortenedPath,
 			}
 		}
 		w.WriteHeader(http.StatusCreated)
@@ -245,7 +245,7 @@ func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	for i := range records {
 		response[i] = responseItem{
 			OriginalURL: records[i].OriginalURL,
-			ShortURL:    h.config.ShortenedURLBaseAddr + "/" + records[i].ShortenedPath,
+			ShortURL:    h.config.BaseURL + "/" + records[i].ShortenedPath,
 		}
 	}
 	if err = encoder.Encode(response); err != nil {
