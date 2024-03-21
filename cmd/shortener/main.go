@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
@@ -50,9 +51,20 @@ func main() {
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
 	go onExit(exit, &server, store)
 
-	err := server.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		panic(err)
+	var serveErr error
+	if config.UseHTTPS() {
+		manager := &autocert.Manager{
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist("urlshort.ru"),
+		}
+		server.TLSConfig = manager.TLSConfig()
+		serveErr = server.ListenAndServeTLS("", "")
+	} else {
+		serveErr = server.ListenAndServe()
+	}
+
+	if serveErr != nil && serveErr != http.ErrServerClosed {
+		panic(serveErr)
 	}
 }
 
