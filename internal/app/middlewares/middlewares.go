@@ -3,6 +3,7 @@ package middlewares
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/compress"
+	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 )
 
@@ -109,6 +111,25 @@ func Authenticate(h http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
 		h.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// OnlyTrustedIP
+func OnlyTrustedIP(cnf configs.Config) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, ipv4Net, err := net.ParseCIDR(cnf.TrustedSubnet)
+			if err != nil {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			realIP := net.ParseIP(r.Header.Get("X-Real-IP"))
+			if !ipv4Net.Contains(realIP) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			h.ServeHTTP(w, r)
+		})
+	}
 }
 
 // Get user ID from context
