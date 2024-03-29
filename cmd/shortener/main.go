@@ -115,6 +115,10 @@ func configureRouter(
 			router.Delete("/api/user/urls", handlers.DeleteUserURLs(urlDeleter))
 		})
 	})
+	router.Group(func(router chi.Router) {
+		router.Use(middlewares.OnlyTrustedIP(config), middleware.AllowContentType("application/json"))
+		router.Get("/api/internal/stats", handlers.GetStats)
+	})
 
 	return router
 }
