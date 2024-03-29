@@ -34,6 +34,8 @@ type Storage interface {
 	Save(ctx context.Context, record models.Record) error
 	BatchSave(ctx context.Context, records []models.Record) error
 	BatchDelete(ctx context.Context, records []models.Record) error
+	URLsCount(ctx context.Context) (int, error)
+	UsersCount(ctx context.Context) (int, error)
 
 	CreateUser(ctx context.Context) (models.User, error)
 }

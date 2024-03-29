@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-
 	models "github.com/ilya-burinskiy/urlshort/internal/app/models"
 )
 
@@ -136,4 +135,34 @@ func (m *MockStorage) Save(arg0 context.Context, arg1 models.Record) error {
 func (mr *MockStorageMockRecorder) Save(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockStorage)(nil).Save), arg0, arg1)
+}
+
+// URLsCount mocks base method.
+func (m *MockStorage) URLsCount(arg0 context.Context) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "URLsCount", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// URLsCount indicates an expected call of URLsCount.
+func (mr *MockStorageMockRecorder) URLsCount(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URLsCount", reflect.TypeOf((*MockStorage)(nil).URLsCount), arg0)
+}
+
+// UsersCount mocks base method.
+func (m *MockStorage) UsersCount(arg0 context.Context) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UsersCount", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UsersCount indicates an expected call of UsersCount.
+func (mr *MockStorageMockRecorder) UsersCount(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UsersCount", reflect.TypeOf((*MockStorage)(nil).UsersCount), arg0)
 }
