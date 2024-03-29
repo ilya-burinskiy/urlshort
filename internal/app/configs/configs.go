@@ -14,6 +14,7 @@ type Config struct {
 	BaseURL         string `json:"base_url,omitempty"`
 	FileStoragePath string `json:"file_storage_path,omitempty"`
 	DatabaseDSN     string `json:"database_dsn,omitempty"`
+	TrustedSubnet   string `json:"trusted_subnet"`
 	EnableHTTPS     bool   `json:"enable_https"`
 }
 
@@ -26,6 +27,7 @@ func Parse() Config {
 	flag.StringVar(&flagConfigs.FileStoragePath, "f", "", "file storage path")
 	flag.StringVar(&flagConfigs.DatabaseDSN, "d", "", "database URL")
 	flag.BoolVar(&flagConfigs.EnableHTTPS, "s", false, "enable HTTPS")
+	flag.StringVar(&flagConfigs.TrustedSubnet, "t", "", "trusted subnet")
 	flag.StringVar(&configFilePath, "c", "", "file path with json application configs")
 	flag.Parse()
 
@@ -56,6 +58,9 @@ func applyConfigs(dst *Config, src Config) {
 	if src.DatabaseDSN != "" {
 		dst.DatabaseDSN = src.DatabaseDSN
 	}
+	if src.TrustedSubnet != "" {
+		dst.TrustedSubnet = src.TrustedSubnet
+	}
 	dst.EnableHTTPS = src.EnableHTTPS
 }
 
@@ -79,6 +84,7 @@ func envConfigs() Config {
 		BaseURL:         os.Getenv("BASE_URL"),
 		FileStoragePath: os.Getenv("FILE_STORAGE_PATH"),
 		DatabaseDSN:     os.Getenv("DATABASE_DSN"),
+		TrustedSubnet:   os.Getenv("TRUSTED_SUBNET"),
 	}
 
 	enableHTTPS, err := strconv.ParseBool(os.Getenv("ENABLE_HTTPS"))
