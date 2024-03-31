@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+option go_package = "github.com/ilya-burinskiy/urlshort/internal/app/handlers/grpc";
+
+message CreateURLRequest {
+    string original_url = 1;
+}
+
+message CreateURLResponse {
+    string short_url = 1;
+}
+
+message GetOriginalURLRequest {
+    string short_url = 1;
+}
+
+message GetOriginalURLResponse {
+    string original_url = 1;
+}
+
+message BatchCreateURLRequest {
+    message Item {
+        string original_url = 1;
+        string correlation_id = 2;
+    }
+    repeated Item items = 1;
+}
+
+message BatchCreateURLResponse {
+    message Item {
+        string correlation_id = 1;
+        string short_url = 2;
+    }
+    repeated Item items = 1;
+}
+
+message GetUserURLsRequest {
+}
+
+message GetUserURLsResponse {
+    message Item {
+        string original_url = 1;
+        string short_url = 2;
+    }
+    repeated Item items = 1;
+}
+
+message DeleteUserURLsRequest {
+    repeated string short_urls = 1;
+}
+
+message DeleteUserURLsResponse {
+}
+
+message GetStatsRequest {
+}
+
+message GetStatsResponse {
+    uint64 urls = 1;
+    uint64 users = 2;
+}
+
+message PingDBRequest {
+}
+
+message PingDBResponse {
+}
+
+service URLService {
+    rpc CreateURL(CreateURLRequest) returns (CreateURLResponse);
+    rpc GetOriginalURL(GetOriginalURLRequest) returns (GetOriginalURLResponse);
+    rpc BatchCreateURL(BatchCreateURLRequest) returns (BatchCreateURLResponse);
+    rpc GetUserURLs (GetUserURLsRequest) returns (GetUserURLsResponse);
+    rpc DeleteUserURLs (DeleteUserURLsRequest) returns (DeleteUserURLsResponse);
+    rpc GetStats (GetStatsRequest) returns (GetStatsResponse);
+    rpc PingDB (PingDBRequest) returns (PingDBResponse);
+}

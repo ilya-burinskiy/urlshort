@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,9 +13,11 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
+	"google.golang.org/grpc"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
+	pb "github.com/ilya-burinskiy/urlshort/internal/app/handlers/grpc"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
@@ -42,6 +45,15 @@ func main() {
 	)
 	urlDeleter := services.NewBatchDeleter(store)
 	go urlDeleter.Run()
+	go startGRPCServer(config, store, urlCreateService, urlDeleter)
+	startHTTPServer(config, store, urlCreateService, urlDeleter)
+}
+
+func startHTTPServer(
+	config configs.Config,
+	store storage.Storage,
+	urlCreateService services.CreateURLService,
+	urlDeleter services.BatchDeleter) {
 
 	server := http.Server{
 		Handler: configureRouter(config, urlCreateService, urlDeleter, store),
@@ -65,6 +77,28 @@ func main() {
 
 	if serveErr != nil && serveErr != http.ErrServerClosed {
 		panic(serveErr)
+	}
+}
+
+func startGRPCServer(
+	config configs.Config,
+	store storage.Storage,
+	urlCreateService services.CreateURLService,
+	urlDeleter services.BatchDeleter) {
+
+	listen, err := net.Listen("tcp", config.GRPCServerAddress)
+	if err != nil {
+		panic(err)
+	}
+	srv := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			pb.AuthenticateInterceptor,
+			pb.TrustedIPInterceptor(config),
+		),
+	)
+	pb.RegisterURLServiceServer(srv, pb.NewURLsServer(config, store, urlCreateService, urlDeleter))
+	if err := srv.Serve(listen); err != nil {
+		panic(err)
 	}
 }
 
