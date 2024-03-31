@@ -87,10 +87,10 @@ func (h Handlers) GetStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get user from jwt cookie
-func (h Handlers) GetUser(r *http.Request) (models.User, error) {
+func (h Handlers) GetUser(r *http.Request) *models.User {
 	cookie, err := r.Cookie("jwt")
 	if err != nil {
-		return models.User{}, err
+		return nil
 	}
 
 	claims := &auth.Claims{}
@@ -98,10 +98,10 @@ func (h Handlers) GetUser(r *http.Request) (models.User, error) {
 		return []byte(auth.SecretKey), nil
 	})
 	if err != nil || !token.Valid {
-		return models.User{}, err
+		return nil
 	}
 
-	return models.User{ID: claims.UserID}, nil
+	return &models.User{ID: claims.UserID}
 }
 
 func setJWTCookie(w http.ResponseWriter, token string) {

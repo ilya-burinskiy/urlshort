@@ -40,21 +40,22 @@ func (h Handlers) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 // Create shorened URL
 func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, err := h.GetUser(r)
-		if err != nil {
-			user, err = h.store.CreateUser(r.Context())
+		user := h.GetUser(r)
+		if user == nil {
+			newUser, err := h.store.CreateUser(r.Context())
 			if err != nil {
 				http.Error(w, "failed to create user: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 
 			var token string
-			token, err = auth.BuildJWTString(user)
+			token, err = auth.BuildJWTString(newUser)
 			if err != nil {
 				http.Error(w, "failed to build JWT string: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 
+			user = &newUser
 			setJWTCookie(w, token)
 		}
 
@@ -65,7 +66,7 @@ func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(htt
 		}
 		originalURL := string(bytes)
 
-		record, err := urlCreateService.Create(originalURL, user)
+		record, err := urlCreateService.Create(originalURL, *user)
 		if err != nil {
 			var notUniqErr *storage.ErrNotUnique
 			if errors.As(err, &notUniqErr) {
@@ -100,9 +101,9 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 			return
 		}
 
-		user, err := h.GetUser(r)
-		if err != nil {
-			user, err = h.store.CreateUser(r.Context())
+		user := h.GetUser(r)
+		if user == nil {
+			newUser, err := h.store.CreateUser(r.Context())
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				if err = encoder.Encode("failed to create user: " + err.Error()); err != nil {
@@ -112,7 +113,7 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 			}
 
 			var token string
-			token, err = auth.BuildJWTString(user)
+			token, err = auth.BuildJWTString(newUser)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				if err = encoder.Encode("failed to build JWT string: " + err.Error()); err != nil {
@@ -121,10 +122,11 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 				return
 			}
 
+			user = &newUser
 			setJWTCookie(w, token)
 		}
 		originalURL := requestBody["url"]
-		record, err := urlCreateService.Create(originalURL, user)
+		record, err := urlCreateService.Create(originalURL, *user)
 		if err != nil {
 			var notUniqErr *storage.ErrNotUnique
 			if errors.As(err, &notUniqErr) {
@@ -167,9 +169,9 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 			return
 		}
 
-		user, err := h.GetUser(r)
-		if err != nil {
-			user, err = h.store.CreateUser(r.Context())
+		user := h.GetUser(r)
+		if user == nil {
+			newUser, err := h.store.CreateUser(r.Context())
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				if err = encoder.Encode("failed to create user: " + err.Error()); err != nil {
@@ -179,7 +181,7 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 			}
 
 			var token string
-			token, err = auth.BuildJWTString(user)
+			token, err = auth.BuildJWTString(newUser)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				if err = encoder.Encode("failed to build JWT string: " + err.Error()); err != nil {
@@ -188,9 +190,10 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 				return
 			}
 
+			user = &newUser
 			setJWTCookie(w, token)
 		}
-		savedRecords, err := urlCreateService.BatchCreate(records, user)
+		savedRecords, err := urlCreateService.BatchCreate(records, *user)
 		if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			if err = encoder.Encode(err.Error()); err != nil {
