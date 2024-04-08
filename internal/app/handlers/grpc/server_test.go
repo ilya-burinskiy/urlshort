@@ -51,13 +51,24 @@ func (b *batchURLDeleterMock) Delete(models.Record) {}
 
 func (b *batchURLDeleterMock) Run() {}
 
+type userAuthenticatorMock struct{ mock.Mock }
+
+func (m *userAuthenticatorMock) AuthOrRegister(ctx context.Context, jwtStr string) (models.User, string, error) {
+	args := m.Called(ctx, jwtStr)
+	return args.Get(0).(models.User), args.String(1), args.Error(2)
+}
+
 func TestCreateURL(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mocks.NewMockStorage(ctrl)
 	store.EXPECT().CreateUser(gomock.Any()).AnyTimes().Return(models.User{ID: 1}, nil)
 	urlCreateService := new(urlCreateServiceMock)
+	userAuthenticator := new(userAuthenticatorMock)
+	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
+		models.User{ID: 1}, "123", nil,
+	)
 	urlDeleter := new(batchURLDeleterMock)
-	srvCloser := startServer(defaultConfig, store, urlCreateService, urlDeleter)
+	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
 	defer srvCloser()
 
 	client, closer := getClient()
@@ -136,8 +147,12 @@ func TestGetOriginalURL(t *testing.T) {
 	store.EXPECT().FindByShortenedPath(gomock.Any(), gomock.Any()).Return(models.Record{}, storage.ErrNotFound)
 	store.EXPECT().FindByShortenedPath(gomock.Any(), gomock.Any()).Return(models.Record{IsDeleted: true}, nil)
 	urlCreateService := new(urlCreateServiceMock)
+	userAuthenticator := new(userAuthenticatorMock)
+	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
+		models.User{ID: 1}, "123", nil,
+	)
 	urlDeleter := new(batchURLDeleterMock)
-	srvCloser := startServer(defaultConfig, store, urlCreateService, urlDeleter)
+	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
 	defer srvCloser()
 
 	client, closer := getClient()
@@ -200,8 +215,12 @@ func TestBatchCreateURL(t *testing.T) {
 	store := mocks.NewMockStorage(ctrl)
 	store.EXPECT().CreateUser(gomock.Any()).AnyTimes().Return(models.User{ID: 1}, nil)
 	urlCreateService := new(urlCreateServiceMock)
+	userAuthenticator := new(userAuthenticatorMock)
+	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
+		models.User{ID: 1}, "123", nil,
+	)
 	urlDeleter := new(batchURLDeleterMock)
-	srvCloser := startServer(defaultConfig, store, urlCreateService, urlDeleter)
+	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
 	defer srvCloser()
 
 	client, closer := getClient()
@@ -289,7 +308,11 @@ func TestGetUserURLS(t *testing.T) {
 	store := mocks.NewMockStorage(ctrl)
 	urlCreateService := new(urlCreateServiceMock)
 	urlDeleter := new(batchURLDeleterMock)
-	srvCloser := startServer(defaultConfig, store, urlCreateService, urlDeleter)
+	userAuthenticator := new(userAuthenticatorMock)
+	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
+		models.User{ID: 1}, "123", nil,
+	)
+	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
 	defer srvCloser()
 
 	userID := 1
@@ -357,8 +380,12 @@ func TestDeleteUserURLs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mocks.NewMockStorage(ctrl)
 	urlCreateService := new(urlCreateServiceMock)
+	userAuthenticator := new(userAuthenticatorMock)
+	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
+		models.User{ID: 1}, "123", nil,
+	)
 	urlDeleter := new(batchURLDeleterMock)
-	srvCloser := startServer(defaultConfig, store, urlCreateService, urlDeleter)
+	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
 	defer srvCloser()
 
 	userID := 1
@@ -405,6 +432,7 @@ func TestDeleteUserURLs(t *testing.T) {
 func startServer(
 	config configs.Config,
 	store storage.Storage,
+	userAuthenticator services.UserAuthService,
 	urlCreateService services.CreateURLService,
 	urlDeleter services.BatchDeleter) func() {
 
@@ -417,6 +445,7 @@ func startServer(
 	pb.RegisterURLServiceServer(srv, pb.NewURLsServer(
 		config,
 		store,
+		userAuthenticator,
 		urlCreateService,
 		urlDeleter,
 	))

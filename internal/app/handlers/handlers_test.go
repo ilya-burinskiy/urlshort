@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -53,6 +54,19 @@ func (m *urlCreaterMock) BatchCreate(records []models.Record, user models.User) 
 type urlCreaterBatchCreateResult struct {
 	err         error
 	returnValue []models.Record
+}
+
+type userAuthenticatorMock struct{ mock.Mock }
+
+func (m *userAuthenticatorMock) AuthOrRegister(ctx context.Context, jwtStr string) (models.User, string, error) {
+	args := m.Called(ctx, jwtStr)
+	return args.Get(0).(models.User), args.String(1), args.Error(2)
+}
+
+type authenticateResult struct {
+	user   models.User
+	jwtStr string
+	err    error
 }
 
 func generateAuthCookie(t require.TestingT, user models.User) *http.Cookie {

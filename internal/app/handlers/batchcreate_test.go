@@ -30,6 +30,7 @@ func TestBatchCreateURLTest(t *testing.T) {
 		AnyTimes().
 		Return(user, nil)
 	createrMock := new(urlCreaterMock)
+	userAuthenticator := new(userAuthenticatorMock)
 
 	router := chi.NewRouter()
 	handler := handlers.NewHandlers(defaultConfig, storageMock)
@@ -40,13 +41,14 @@ func TestBatchCreateURLTest(t *testing.T) {
 		middleware.AllowContentEncoding("gzip"),
 		middleware.AllowContentType("application/json", "application/x-gzip"),
 	)
-	router.Post("/api/shorten/batch", handler.BatchCreateURL(createrMock))
+	router.Post("/api/shorten/batch", handler.BatchCreateURL(createrMock, userAuthenticator))
 	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 
 	testCases := []struct {
 		name              string
 		batchCreateResult urlCreaterBatchCreateResult
+		authOrRegisterRes authOrRegisterResult
 		reqBody           string
 		want              want
 	}{
@@ -57,6 +59,11 @@ func TestBatchCreateURLTest(t *testing.T) {
 					{OriginalURL: "http://example0.com", CorrelationID: "1", ShortenedPath: "1"},
 					{OriginalURL: "http://example1.com", CorrelationID: "2", ShortenedPath: "2"},
 				},
+			},
+			authOrRegisterRes: authOrRegisterResult{
+				user:   models.User{ID: 1},
+				jwtStr: "123",
+				err:    nil,
 			},
 			reqBody: toJSON(
 				t,
@@ -82,6 +89,11 @@ func TestBatchCreateURLTest(t *testing.T) {
 			batchCreateResult: urlCreaterBatchCreateResult{
 				err: errors.New("error"),
 			},
+			authOrRegisterRes: authOrRegisterResult{
+				user:   models.User{ID: 1},
+				jwtStr: "123",
+				err:    nil,
+			},
 			reqBody: toJSON(
 				t,
 				[]models.Record{
@@ -99,9 +111,12 @@ func TestBatchCreateURLTest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockCall := createrMock.On("BatchCreate", mock.Anything, mock.Anything).
+			createCall := createrMock.On("BatchCreate", mock.Anything, mock.Anything).
 				Return(tc.batchCreateResult.returnValue, tc.batchCreateResult.err)
-			defer mockCall.Unset()
+			authCall := userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).
+				Return(tc.authOrRegisterRes.user, tc.authOrRegisterRes.jwtStr, tc.authOrRegisterRes.err)
+			defer createCall.Unset()
+			defer authCall.Unset()
 
 			request, err := http.NewRequest(
 				http.MethodPost,

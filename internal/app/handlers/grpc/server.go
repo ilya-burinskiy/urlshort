@@ -5,8 +5,6 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
@@ -23,48 +21,42 @@ import (
 // URLsServer
 type URLsServer struct {
 	UnimplementedURLServiceServer
-	config           configs.Config
-	store            storage.Storage
-	urlCreateService services.CreateURLService
-	urlDeleter       services.BatchDeleter
+	config            configs.Config
+	store             storage.Storage
+	userAuthenticator services.UserAuthService
+	urlCreateService  services.CreateURLService
+	urlDeleter        services.BatchDeleter
 }
 
 // NewURLsServer
 func NewURLsServer(
 	config configs.Config,
 	store storage.Storage,
+	userAuthenticator services.UserAuthService,
 	urlCreateService services.CreateURLService,
 	urlDeleter services.BatchDeleter) URLsServer {
 
 	return URLsServer{
-		config:           config,
-		store:            store,
-		urlCreateService: urlCreateService,
-		urlDeleter:       urlDeleter,
+		config:            config,
+		store:             store,
+		userAuthenticator: userAuthenticator,
+		urlCreateService:  urlCreateService,
+		urlDeleter:        urlDeleter,
 	}
 }
 
 // CreateURL
 func (s URLsServer) CreateURL(ctx context.Context, in *CreateURLRequest) (*CreateURLResponse, error) {
-	user := getUser(ctx)
-	if user == nil {
-		newUser, err := s.store.CreateUser(ctx)
-		if err != nil {
-			return nil, status.Error(codes.Internal, "failed to create url")
-		}
-
-		var token string
-		token, err = auth.BuildJWTString(newUser)
-		if err != nil {
-			return nil, status.Error(codes.Internal, "failed to create url")
-		}
-
-		user = &newUser
-		if err = grpc.SendHeader(ctx, metadata.New(map[string]string{"jwt": token})); err != nil {
-			return nil, status.Error(codes.Internal, "failed to set jwt")
-		}
+	jwtStr := getJWT(ctx)
+	user, jwtStr, err := s.userAuthenticator.AuthOrRegister(ctx, jwtStr)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
-	record, err := s.urlCreateService.Create(in.OriginalUrl, *user)
+	if err := grpc.SendHeader(ctx, metadata.New(map[string]string{"jwt": jwtStr})); err != nil {
+		return nil, status.Error(codes.Internal, "failed to set JWT")
+	}
+
+	record, err := s.urlCreateService.Create(in.OriginalUrl, user)
 	if err != nil {
 		var notUniqErr *storage.ErrNotUnique
 		if errors.As(err, &notUniqErr) {
@@ -91,30 +83,20 @@ func (s URLsServer) GetOriginalURL(ctx context.Context, in *GetOriginalURLReques
 
 // BatchCreateURL
 func (s URLsServer) BatchCreateURL(ctx context.Context, in *BatchCreateURLRequest) (*BatchCreateURLResponse, error) {
-	user := getUser(ctx)
-	if user == nil {
-		newUser, err := s.store.CreateUser(ctx)
-		if err != nil {
-			return nil, status.Error(codes.Internal, "failed to batch create URLs")
-		}
-
-		var token string
-		token, err = auth.BuildJWTString(newUser)
-		if err != nil {
-			return nil, status.Error(codes.Internal, "failed to batch create URLs")
-		}
-
-		user = &newUser
-		if err = grpc.SendHeader(ctx, metadata.New(map[string]string{"jwt": token})); err != nil {
-			return nil, status.Error(codes.Internal, "failed to set jwt")
-		}
+	jwtStr := getJWT(ctx)
+	user, jwtStr, err := s.userAuthenticator.AuthOrRegister(ctx, jwtStr)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if err := grpc.SendHeader(ctx, metadata.New(map[string]string{"jwt": jwtStr})); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	records := make([]models.Record, len(in.Items))
 	for i, item := range in.Items {
 		records[i] = models.Record{OriginalURL: item.OriginalUrl, CorrelationID: item.CorrelationId}
 	}
-	savedRecords, err := s.urlCreateService.BatchCreate(records, *user)
+	savedRecords, err := s.urlCreateService.BatchCreate(records, user)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -194,24 +176,16 @@ func (s URLsServer) PingDB(ctx context.Context, in *PingDBRequest) (*PingDBRespo
 	return &PingDBResponse{}, nil
 }
 
-func getUser(ctx context.Context) *models.User {
+func getJWT(ctx context.Context) string {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil
+		return ""
 	}
 
 	values := md.Get("jwt")
 	if len(values) == 0 {
-		return nil
+		return ""
 	}
 
-	claims := &auth.Claims{}
-	token, err := jwt.ParseWithClaims(values[0], claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(auth.SecretKey), nil
-	})
-	if err != nil || !token.Valid {
-		return nil
-	}
-
-	return &models.User{ID: claims.UserID}
+	return values[0]
 }
