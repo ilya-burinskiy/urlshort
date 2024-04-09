@@ -32,8 +32,10 @@ func BenchmarkCreateShortenedURLHandler(b *testing.B) {
 		Return(nil)
 
 	urlCreateService := services.NewCreateURLService(8, services.StdRandHexStringGenerator{}, storageMock)
+	userAuthenticator := new(userAuthenticatorMock)
+	userAuthenticator.On("Call", mock.Anything, mock.Anything).Return(models.User{ID: 1}, "123", nil)
 	handler := http.HandlerFunc(
-		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(urlCreateService),
+		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(urlCreateService, userAuthenticator),
 	)
 
 	authCookie := generateAuthCookie(b, models.User{ID: 1})
@@ -60,9 +62,11 @@ func BenchmarkCreateURLFromJSON(b *testing.B) {
 		AnyTimes().
 		Return(nil)
 
+	userAuthenticator := new(userAuthenticatorMock)
+	userAuthenticator.On("Call", mock.Anything, mock.Anything).Return(models.User{ID: 1}, "123", nil)
 	urlCreateService := services.NewCreateURLService(8, services.StdRandHexStringGenerator{}, storageMock)
 	handler := http.HandlerFunc(
-		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(urlCreateService),
+		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(urlCreateService, userAuthenticator),
 	)
 
 	authCookie := generateAuthCookie(b, models.User{ID: 1})
@@ -103,8 +107,10 @@ func BenchmarkBatchCreateURL(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	storageMock := mocks.NewMockStorage(ctrl)
 	urlCreateService := new(urlCreaterMock)
+	userAuthenticator := new(userAuthenticatorMock)
+	userAuthenticator.On("Call", mock.Anything, mock.Anything).Return(models.User{ID: 1}, "123", nil)
 	handler := http.HandlerFunc(
-		handlers.NewHandlers(defaultConfig, storageMock).BatchCreateURL(urlCreateService),
+		handlers.NewHandlers(defaultConfig, storageMock).BatchCreateURL(urlCreateService, userAuthenticator),
 	)
 
 	n := 100

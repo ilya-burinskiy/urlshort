@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
@@ -21,6 +22,7 @@ import (
 func TestGetUserURLsHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	storageMock := mocks.NewMockStorage(ctrl)
+	userAuthenticator := new(userAuthenticatorMock)
 	user := models.User{ID: 1}
 	storageMock.EXPECT().
 		FindByUser(gomock.Any(), user).
@@ -41,7 +43,7 @@ func TestGetUserURLsHandler(t *testing.T) {
 		middlewares.GzipCompress,
 		middleware.AllowContentEncoding("gzip"),
 		middleware.AllowContentType("application/json", "application/x-gzip"),
-		middlewares.Authenticate,
+		middlewares.Authenticate(userAuthenticator),
 	)
 	router.Get("/api/user/urls", handler.GetUserURLs)
 	testServer := httptest.NewServer(router)
@@ -51,11 +53,13 @@ func TestGetUserURLsHandler(t *testing.T) {
 	testCases := []struct {
 		name       string
 		authCookie *http.Cookie
+		authResult authResult
 		want       want
 	}{
 		{
 			name:       "responses with ok status",
 			authCookie: authCookie,
+			authResult: authResult{user: user},
 			want: want{
 				code:        http.StatusOK,
 				contentType: "application/json; charset=utf-8",
@@ -80,6 +84,10 @@ func TestGetUserURLsHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			authCall := userAuthenticator.On("Auth", mock.Anything).
+				Return(tc.authResult.user, tc.authResult.err)
+			defer authCall.Unset()
+
 			request, err := http.NewRequest(
 				http.MethodGet,
 				testServer.URL+"/api/user/urls",

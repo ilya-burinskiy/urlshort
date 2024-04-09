@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,9 +13,11 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
+	"google.golang.org/grpc"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
+	pb "github.com/ilya-burinskiy/urlshort/internal/app/handlers/grpc"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
@@ -40,11 +43,24 @@ func main() {
 		services.StdRandHexStringGenerator{},
 		store,
 	)
+	userAuthenticator := services.NewUserAuthService(store)
 	urlDeleter := services.NewBatchDeleter(store)
+	ipChecker := services.NewIPChecker(config)
 	go urlDeleter.Run()
+	go startGRPCServer(config, store, userAuthenticator, ipChecker, urlCreateService, urlDeleter)
+	startHTTPServer(config, store, userAuthenticator, ipChecker, urlCreateService, urlDeleter)
+}
+
+func startHTTPServer(
+	config configs.Config,
+	store storage.Storage,
+	userAuthenticator services.UserAuthService,
+	ipChecker services.IPChecker,
+	urlCreateService services.CreateURLService,
+	urlDeleter services.BatchDeleter) {
 
 	server := http.Server{
-		Handler: configureRouter(config, urlCreateService, urlDeleter, store),
+		Handler: configureRouter(store, config, userAuthenticator, ipChecker, urlCreateService, urlDeleter),
 		Addr:    config.ServerAddress,
 	}
 	exit := make(chan os.Signal, 1)
@@ -68,6 +84,33 @@ func main() {
 	}
 }
 
+func startGRPCServer(
+	config configs.Config,
+	store storage.Storage,
+	userAuthenticator services.UserAuthService,
+	ipChecker services.IPChecker,
+	urlCreateService services.CreateURLService,
+	urlDeleter services.BatchDeleter) {
+
+	listen, err := net.Listen("tcp", config.GRPCServerAddress)
+	if err != nil {
+		panic(err)
+	}
+	srv := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			pb.AuthenticateInterceptor(userAuthenticator),
+			pb.TrustedIPInterceptor(ipChecker),
+		),
+	)
+	pb.RegisterURLServiceServer(
+		srv,
+		pb.NewURLsServer(config, store, userAuthenticator, urlCreateService, urlDeleter),
+	)
+	if err := srv.Serve(listen); err != nil {
+		panic(err)
+	}
+}
+
 func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 	<-exit
 	switch s := s.(type) {
@@ -86,13 +129,15 @@ func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 }
 
 func configureRouter(
+	store storage.Storage,
 	config configs.Config,
+	userAuthenticator services.UserAuthService,
+	ipChecker services.IPChecker,
 	urlCreateService services.CreateURLService,
-	urlDeleter services.BatchDeleter,
-	s storage.Storage) chi.Router {
+	urlDeleter services.BatchDeleter) chi.Router {
 
 	router := chi.NewRouter()
-	handlers := handlers.NewHandlers(config, s)
+	handlers := handlers.NewHandlers(config, store)
 	router.Use(
 		middlewares.ResponseLogger,
 		middlewares.RequestLogger,
@@ -101,22 +146,22 @@ func configureRouter(
 	)
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("text/plain", "application/x-gzip"))
-		router.Post("/", handlers.CreateURL(urlCreateService))
+		router.Post("/", handlers.CreateURL(urlCreateService, userAuthenticator))
 		router.Get("/{id}", handlers.GetOriginalURL)
 		router.Get("/ping", handlers.PingDB)
 	})
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
-		router.Post("/api/shorten", handlers.CreateURLFromJSON(urlCreateService))
-		router.Post("/api/shorten/batch", handlers.BatchCreateURL(urlCreateService))
+		router.Post("/api/shorten", handlers.CreateURLFromJSON(urlCreateService, userAuthenticator))
+		router.Post("/api/shorten/batch", handlers.BatchCreateURL(urlCreateService, userAuthenticator))
 		router.Group(func(router chi.Router) {
-			router.Use(middlewares.Authenticate)
+			router.Use(middlewares.Authenticate(userAuthenticator))
 			router.Get("/api/user/urls", handlers.GetUserURLs)
 			router.Delete("/api/user/urls", handlers.DeleteUserURLs(urlDeleter))
 		})
 	})
 	router.Group(func(router chi.Router) {
-		router.Use(middlewares.OnlyTrustedIP(config), middleware.AllowContentType("application/json"))
+		router.Use(middlewares.OnlyTrustedIP(ipChecker), middleware.AllowContentType("application/json"))
 		router.Get("/api/internal/stats", handlers.GetStats)
 	})
 

@@ -36,13 +36,10 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		Save(gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return(nil)
-	storageMock.EXPECT().
-		CreateUser(gomock.Any()).
-		AnyTimes().
-		Return(models.User{ID: 1}, nil)
 
 	generatorMock := new(mockRandHexStringGenerator)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
+	userAuthenticator := new(userAuthenticatorMock)
 	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
@@ -52,7 +49,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		middleware.AllowContentEncoding("gzip"),
 		middleware.AllowContentType("text/plain", "application/x-gzip"),
 	)
-	router.Post("/", handler.CreateURL(urlCreateService))
+	router.Post("/", handler.CreateURL(urlCreateService, userAuthenticator))
 	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 
@@ -66,13 +63,19 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		path                string
 		contentType         string
 		generatorCallResult generatorCallResult
+		authOrRegisterRes   authOrRegisterResult
 		want                want
 	}{
 		{
-			name:                "responses with created status",
-			httpMethod:          http.MethodPost,
-			path:                "/",
-			contentType:         "text/plain",
+			name:        "responses with created status",
+			httpMethod:  http.MethodPost,
+			path:        "/",
+			contentType: "text/plain",
+			authOrRegisterRes: authOrRegisterResult{
+				user:   models.User{ID: 1},
+				jwtStr: "123",
+				err:    nil,
+			},
 			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
 			want: want{
 				code:        http.StatusCreated,
@@ -81,10 +84,15 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:                "responses with method not allowed if method is not POST",
-			httpMethod:          http.MethodGet,
-			path:                "/",
-			contentType:         "text/plain",
+			name:        "responses with method not allowed if method is not POST",
+			httpMethod:  http.MethodGet,
+			path:        "/",
+			contentType: "text/plain",
+			authOrRegisterRes: authOrRegisterResult{
+				user:   models.User{ID: 1},
+				jwtStr: "123",
+				err:    nil,
+			},
 			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
 			want: want{
 				code:        http.StatusMethodNotAllowed,
@@ -93,10 +101,15 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:                `responses with bad request if content-type is not "text/plain"`,
-			httpMethod:          http.MethodPost,
-			path:                "/",
-			contentType:         "application/json",
+			name:        `responses with bad request if content-type is not "text/plain"`,
+			httpMethod:  http.MethodPost,
+			path:        "/",
+			contentType: "application/json",
+			authOrRegisterRes: authOrRegisterResult{
+				user:   models.User{ID: 1},
+				jwtStr: "123",
+				err:    nil,
+			},
 			generatorCallResult: generatorCallResult{returnValue: "123", error: nil},
 			want: want{
 				code:        http.StatusUnsupportedMediaType,
@@ -105,10 +118,15 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 			},
 		},
 		{
-			name:                "responses with unprocessable entity status",
-			httpMethod:          http.MethodPost,
-			path:                "/",
-			contentType:         "text/plain",
+			name:        "responses with unprocessable entity status",
+			httpMethod:  http.MethodPost,
+			path:        "/",
+			contentType: "text/plain",
+			authOrRegisterRes: authOrRegisterResult{
+				user:   models.User{ID: 1},
+				jwtStr: "123",
+				err:    nil,
+			},
 			generatorCallResult: generatorCallResult{returnValue: "", error: errors.New("error")},
 			want: want{
 				code:        http.StatusUnprocessableEntity,
@@ -120,11 +138,14 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockCall := generatorMock.On("Call", mock.Anything).Return(
+			genCall := generatorMock.On("Call", mock.Anything).Return(
 				tc.generatorCallResult.returnValue,
 				tc.generatorCallResult.error,
 			)
-			defer mockCall.Unset()
+			authCall := userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).
+				Return(tc.authOrRegisterRes.user, tc.authOrRegisterRes.jwtStr, tc.authOrRegisterRes.err)
+			defer genCall.Unset()
+			defer authCall.Unset()
 
 			request, err := http.NewRequest(
 				tc.httpMethod,

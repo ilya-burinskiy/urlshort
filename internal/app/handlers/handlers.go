@@ -6,14 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
-	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
@@ -86,22 +84,13 @@ func (h Handlers) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Get user from jwt cookie
-func (h Handlers) GetUser(r *http.Request) (models.User, error) {
+func getJWT(r *http.Request) string {
 	cookie, err := r.Cookie("jwt")
 	if err != nil {
-		return models.User{}, err
+		return ""
 	}
 
-	claims := &auth.Claims{}
-	token, err := jwt.ParseWithClaims(cookie.Value, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(auth.SecretKey), nil
-	})
-	if err != nil || !token.Valid {
-		return models.User{}, err
-	}
-
-	return models.User{ID: claims.UserID}, nil
+	return cookie.Value
 }
 
 func setJWTCookie(w http.ResponseWriter, token string) {

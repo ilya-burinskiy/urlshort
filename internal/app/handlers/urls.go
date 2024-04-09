@@ -11,7 +11,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
@@ -38,25 +37,18 @@ func (h Handlers) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create shorened URL
-func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
+func (h Handlers) CreateURL(
+	urlCreateService services.CreateURLService,
+	userAuthenticator services.UserAuthService) func(http.ResponseWriter, *http.Request) {
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, err := h.GetUser(r)
+		jwtStr := getJWT(r)
+		user, jwtStr, err := userAuthenticator.AuthOrRegister(r.Context(), jwtStr)
 		if err != nil {
-			user, err = h.store.CreateUser(r.Context())
-			if err != nil {
-				http.Error(w, "failed to create user: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			var token string
-			token, err = auth.BuildJWTString(user)
-			if err != nil {
-				http.Error(w, "failed to build JWT string: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			setJWTCookie(w, token)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		setJWTCookie(w, jwtStr)
 
 		bytes, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -87,7 +79,10 @@ func (h Handlers) CreateURL(urlCreateService services.CreateURLService) func(htt
 }
 
 // Create shortened URL from JSON
-func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
+func (h Handlers) CreateURLFromJSON(
+	urlCreateService services.CreateURLService,
+	userAuthenticator services.UserAuthService) func(http.ResponseWriter, *http.Request) {
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var requestBody map[string]string
@@ -100,29 +95,14 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 			return
 		}
 
-		user, err := h.GetUser(r)
+		jwtStr := getJWT(r)
+		user, jwtStr, err := userAuthenticator.AuthOrRegister(r.Context(), jwtStr)
 		if err != nil {
-			user, err = h.store.CreateUser(r.Context())
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				if err = encoder.Encode("failed to create user: " + err.Error()); err != nil {
-					logger.Log.Info("failed to encode response", zap.Error(err))
-				}
-				return
-			}
-
-			var token string
-			token, err = auth.BuildJWTString(user)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				if err = encoder.Encode("failed to build JWT string: " + err.Error()); err != nil {
-					logger.Log.Info("failed to encode response", zap.Error(err))
-				}
-				return
-			}
-
-			setJWTCookie(w, token)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		setJWTCookie(w, jwtStr)
+
 		originalURL := requestBody["url"]
 		record, err := urlCreateService.Create(originalURL, user)
 		if err != nil {
@@ -153,7 +133,10 @@ func (h Handlers) CreateURLFromJSON(urlCreateService services.CreateURLService) 
 }
 
 // Create multiple shortened URLs
-func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) func(http.ResponseWriter, *http.Request) {
+func (h Handlers) BatchCreateURL(
+	urlCreateService services.CreateURLService,
+	userAuthenticator services.UserAuthService) func(http.ResponseWriter, *http.Request) {
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		records := make([]models.Record, 0)
@@ -167,29 +150,14 @@ func (h Handlers) BatchCreateURL(urlCreateService services.CreateURLService) fun
 			return
 		}
 
-		user, err := h.GetUser(r)
+		jwtStr := getJWT(r)
+		user, jwtStr, err := userAuthenticator.AuthOrRegister(r.Context(), jwtStr)
 		if err != nil {
-			user, err = h.store.CreateUser(r.Context())
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				if err = encoder.Encode("failed to create user: " + err.Error()); err != nil {
-					logger.Log.Info("failed to encode response", zap.Error(err))
-				}
-				return
-			}
-
-			var token string
-			token, err = auth.BuildJWTString(user)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				if err = encoder.Encode("failed to build JWT string: " + err.Error()); err != nil {
-					logger.Log.Info("failed to encode response", zap.Error(err))
-				}
-				return
-			}
-
-			setJWTCookie(w, token)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		setJWTCookie(w, jwtStr)
+
 		savedRecords, err := urlCreateService.BatchCreate(records, user)
 		if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)

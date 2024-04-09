@@ -3,18 +3,17 @@ package middlewares
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
 	"go.uber.org/zap"
 
-	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/compress"
-	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
+	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 )
 
 type contextKey string
@@ -86,44 +85,37 @@ func RequestLogger(h http.Handler) http.Handler {
 }
 
 // Authentication middleware
-func Authenticate(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		encoder := json.NewEncoder(w)
-		cookie, err := r.Cookie("jwt")
-		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			if err = encoder.Encode(err.Error()); err != nil {
-				logger.Log.Info("authenticate middleware", zap.Error(err))
+func Authenticate(userAuthenticator services.UserAuthService) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			encoder := json.NewEncoder(w)
+			cookie, err := r.Cookie("jwt")
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				if err = encoder.Encode(err.Error()); err != nil {
+					logger.Log.Info("authenticate middleware", zap.Error(err))
+				}
+				return
 			}
-			return
-		}
-		claims := &auth.Claims{}
-		token, err := jwt.ParseWithClaims(cookie.Value, claims, func(token *jwt.Token) (interface{}, error) {
-			return []byte(auth.SecretKey), nil
+
+			user, err := userAuthenticator.Auth(cookie.Value)
+			if errors.Is(err, services.ErrInvalidJWT) {
+				w.WriteHeader(http.StatusUnauthorized)
+				if err = encoder.Encode("invalid JWT"); err != nil {
+					logger.Log.Info("authenticate middleware", zap.Error(err))
+				}
+			}
+			ctx := context.WithValue(r.Context(), userIDKey, user.ID)
+			h.ServeHTTP(w, r.WithContext(ctx))
 		})
-		if err != nil || !token.Valid {
-			w.WriteHeader(http.StatusUnauthorized)
-			if err = encoder.Encode("invalid jwt token"); err != nil {
-				logger.Log.Info("authenticate middleware", zap.Error(err))
-			}
-			return
-		}
-		ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
-		h.ServeHTTP(w, r.WithContext(ctx))
-	})
+	}
 }
 
 // OnlyTrustedIP
-func OnlyTrustedIP(cnf configs.Config) func(http.Handler) http.Handler {
+func OnlyTrustedIP(ipChecker services.IPChecker) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, ipv4Net, err := net.ParseCIDR(cnf.TrustedSubnet)
-			if err != nil {
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-			realIP := net.ParseIP(r.Header.Get("X-Real-IP"))
-			if !ipv4Net.Contains(realIP) {
+			if !ipChecker.InTrustedSubnet(net.ParseIP(r.Header.Get("X-Real-IP"))) {
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
