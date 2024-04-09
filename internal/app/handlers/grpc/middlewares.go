@@ -6,7 +6,6 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -66,7 +65,12 @@ func AuthenticateInterceptor(userAuthenticator services.UserAuthService) func(
 }
 
 // TrustedIPInterceptor
-func TrustedIPInterceptor(config configs.Config) func(context.Context, interface{}, *grpc.UnaryServerInfo, grpc.UnaryHandler) (interface{}, error) {
+func TrustedIPInterceptor(ipChecker services.IPChecker) func(
+	context.Context,
+	interface{},
+	*grpc.UnaryServerInfo,
+	grpc.UnaryHandler) (interface{}, error) {
+
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		method, _ := grpc.Method(ctx)
 		for _, imethod := range ingoreIPCheckMethods {
@@ -74,11 +78,6 @@ func TrustedIPInterceptor(config configs.Config) func(context.Context, interface
 				return handler(ctx, req)
 			}
 		}
-		_, ipv4Net, err := net.ParseCIDR(config.TrustedSubnet)
-		if err != nil {
-			return nil, status.Error(codes.Internal, "failed to parse trusted subnet CIDR")
-		}
-
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
 			return nil, status.Error(codes.PermissionDenied, "missing \"x-real-ip\"")
@@ -88,8 +87,7 @@ func TrustedIPInterceptor(config configs.Config) func(context.Context, interface
 			return nil, status.Error(codes.PermissionDenied, "missing \"x-real-ip\"")
 		}
 
-		realIP := net.ParseIP(values[0])
-		if !ipv4Net.Contains(realIP) {
+		if !ipChecker.InTrustedSubnet(net.ParseIP(values[0])) {
 			return nil, status.Error(codes.PermissionDenied, "forbidden")
 		}
 

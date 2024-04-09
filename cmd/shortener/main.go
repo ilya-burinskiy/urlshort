@@ -45,20 +45,22 @@ func main() {
 	)
 	userAuthenticator := services.NewUserAuthService(store)
 	urlDeleter := services.NewBatchDeleter(store)
+	ipChecker := services.NewIPChecker(config)
 	go urlDeleter.Run()
-	go startGRPCServer(config, store, userAuthenticator, urlCreateService, urlDeleter)
-	startHTTPServer(config, store, userAuthenticator, urlCreateService, urlDeleter)
+	go startGRPCServer(config, store, userAuthenticator, ipChecker, urlCreateService, urlDeleter)
+	startHTTPServer(config, store, userAuthenticator, ipChecker, urlCreateService, urlDeleter)
 }
 
 func startHTTPServer(
 	config configs.Config,
 	store storage.Storage,
 	userAuthenticator services.UserAuthService,
+	ipChecker services.IPChecker,
 	urlCreateService services.CreateURLService,
 	urlDeleter services.BatchDeleter) {
 
 	server := http.Server{
-		Handler: configureRouter(store, config, userAuthenticator, urlCreateService, urlDeleter),
+		Handler: configureRouter(store, config, userAuthenticator, ipChecker, urlCreateService, urlDeleter),
 		Addr:    config.ServerAddress,
 	}
 	exit := make(chan os.Signal, 1)
@@ -86,6 +88,7 @@ func startGRPCServer(
 	config configs.Config,
 	store storage.Storage,
 	userAuthenticator services.UserAuthService,
+	ipChecker services.IPChecker,
 	urlCreateService services.CreateURLService,
 	urlDeleter services.BatchDeleter) {
 
@@ -96,7 +99,7 @@ func startGRPCServer(
 	srv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			pb.AuthenticateInterceptor(userAuthenticator),
-			pb.TrustedIPInterceptor(config),
+			pb.TrustedIPInterceptor(ipChecker),
 		),
 	)
 	pb.RegisterURLServiceServer(
@@ -129,6 +132,7 @@ func configureRouter(
 	store storage.Storage,
 	config configs.Config,
 	userAuthenticator services.UserAuthService,
+	ipChecker services.IPChecker,
 	urlCreateService services.CreateURLService,
 	urlDeleter services.BatchDeleter) chi.Router {
 
@@ -157,7 +161,7 @@ func configureRouter(
 		})
 	})
 	router.Group(func(router chi.Router) {
-		router.Use(middlewares.OnlyTrustedIP(config), middleware.AllowContentType("application/json"))
+		router.Use(middlewares.OnlyTrustedIP(ipChecker), middleware.AllowContentType("application/json"))
 		router.Get("/api/internal/stats", handlers.GetStats)
 	})
 

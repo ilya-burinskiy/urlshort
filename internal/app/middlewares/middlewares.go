@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/compress"
-	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 )
@@ -113,16 +112,10 @@ func Authenticate(userAuthenticator services.UserAuthService) func(http.Handler)
 }
 
 // OnlyTrustedIP
-func OnlyTrustedIP(cnf configs.Config) func(http.Handler) http.Handler {
+func OnlyTrustedIP(ipChecker services.IPChecker) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, ipv4Net, err := net.ParseCIDR(cnf.TrustedSubnet)
-			if err != nil {
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-			realIP := net.ParseIP(r.Header.Get("X-Real-IP"))
-			if !ipv4Net.Contains(realIP) {
+			if !ipChecker.InTrustedSubnet(net.ParseIP(r.Header.Get("X-Real-IP"))) {
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
