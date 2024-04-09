@@ -206,6 +206,30 @@ func (db *DBStorage) CreateUser(ctx context.Context) (models.User, error) {
 	return user, nil
 }
 
+// URLsCount
+func (db *DBStorage) URLsCount(ctx context.Context) (int, error) {
+	row := db.pool.QueryRow(ctx, `SELECT COUNT(*) AS "urls_count" FROM "urls"`)
+	var urlsCount int
+	err := row.Scan(&urlsCount)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch urls count: %s", err.Error())
+	}
+
+	return urlsCount, nil
+}
+
+// UsersCount
+func (db *DBStorage) UsersCount(ctx context.Context) (int, error) {
+	row := db.pool.QueryRow(ctx, `SELECT COUNT(*) AS "users_count" FROM "users"`)
+	var usersCount int
+	err := row.Scan(&usersCount)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch users count: %s", err.Error())
+	}
+
+	return usersCount, nil
+}
+
 // Close connection to database
 func (db *DBStorage) Close() {
 	db.pool.Close()

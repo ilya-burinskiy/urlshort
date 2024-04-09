@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -52,6 +53,37 @@ func (h Handlers) PingDB(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	w.WriteHeader(http.StatusOK)
+}
+
+// GetStats
+func (h Handlers) GetStats(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	ctx := r.Context()
+	usersCount, err := h.store.UsersCount(ctx)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	urlsCount, err := h.store.URLsCount(ctx)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	response, err := json.Marshal(map[string]int{
+		"urls":  urlsCount,
+		"users": usersCount,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Log.Info("failed to encode response", zap.Error(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(response); err != nil {
+		logger.Log.Info("failed to write response", zap.Error(err))
+	}
 }
 
 // Get user from jwt cookie

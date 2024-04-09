@@ -146,6 +146,16 @@ func (ms *MapStorage) CreateUser(ctx context.Context) (models.User, error) {
 	return models.User{ID: id}, nil
 }
 
+// UsersCount
+func (ms *MapStorage) UsersCount(ctx context.Context) (int, error) {
+	return ms.userID - 1, nil
+}
+
+// URLsCount
+func (ms *MapStorage) URLsCount(ctx context.Context) (int, error) {
+	return len(ms.records), nil
+}
+
 // Dump inmemory storage to file
 func (ms *MapStorage) Dump() error {
 	if ms.fs != nil {
