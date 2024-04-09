@@ -29,6 +29,7 @@ func TestDeleterUserURLsHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	storageMock := mocks.NewMockStorage(ctrl)
 	urlDeleterMock := new(urlDeleterMock)
+	userAuthenticator := new(userAuthenticatorMock)
 	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
 	router.Use(
@@ -37,21 +38,24 @@ func TestDeleterUserURLsHandler(t *testing.T) {
 		middlewares.GzipCompress,
 		middleware.AllowContentEncoding("gzip"),
 		middleware.AllowContentType("application/json", "application/x-gzip"),
-		middlewares.Authenticate,
+		middlewares.Authenticate(userAuthenticator),
 	)
 	router.Delete("/api/user/urls", handler.DeleteUserURLs(urlDeleterMock))
 	testServer := httptest.NewServer(router)
 
-	authCookie := generateAuthCookie(t, models.User{ID: 1})
+	user := models.User{ID: 1}
+	authCookie := generateAuthCookie(t, user)
 	testCases := []struct {
 		name       string
 		authCookie *http.Cookie
+		authResult authResult
 		reqBody    string
 		want       want
 	}{
 		{
 			name:       "responses with accepted status",
 			authCookie: authCookie,
+			authResult: authResult{user: user},
 			reqBody:    toJSON(t, []string{"1", "2"}),
 			want: want{
 				code:        http.StatusAccepted,
@@ -59,7 +63,7 @@ func TestDeleterUserURLsHandler(t *testing.T) {
 			},
 		},
 		{
-			name:       "responses with unauthorized status",
+			name:       "responses with unauthorized status if cookie isn't present",
 			authCookie: &http.Cookie{},
 			want: want{
 				code:     http.StatusUnauthorized,
@@ -70,6 +74,10 @@ func TestDeleterUserURLsHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			authCall := userAuthenticator.On("Auth", mock.Anything).
+				Return(tc.authResult.user, tc.authResult.err)
+			defer authCall.Unset()
+
 			request, err := http.NewRequest(
 				http.MethodDelete,
 				testServer.URL+"/api/user/urls",

@@ -95,7 +95,7 @@ func startGRPCServer(
 	}
 	srv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			pb.AuthenticateInterceptor,
+			pb.AuthenticateInterceptor(userAuthenticator),
 			pb.TrustedIPInterceptor(config),
 		),
 	)
@@ -151,7 +151,7 @@ func configureRouter(
 		router.Post("/api/shorten", handlers.CreateURLFromJSON(urlCreateService, userAuthenticator))
 		router.Post("/api/shorten/batch", handlers.BatchCreateURL(urlCreateService, userAuthenticator))
 		router.Group(func(router chi.Router) {
-			router.Use(middlewares.Authenticate)
+			router.Use(middlewares.Authenticate(userAuthenticator))
 			router.Get("/api/user/urls", handlers.GetUserURLs)
 			router.Delete("/api/user/urls", handlers.DeleteUserURLs(urlDeleter))
 		})

@@ -63,10 +63,20 @@ func (m *userAuthenticatorMock) AuthOrRegister(ctx context.Context, jwtStr strin
 	return args.Get(0).(models.User), args.String(1), args.Error(2)
 }
 
-type authenticateResult struct {
+func (m *userAuthenticatorMock) Auth(jwtStr string) (models.User, error) {
+	args := m.Called(jwtStr)
+	return args.Get(0).(models.User), args.Error(1)
+}
+
+type authOrRegisterResult struct {
 	user   models.User
 	jwtStr string
 	err    error
+}
+
+type authResult struct {
+	user models.User
+	err  error
 }
 
 func generateAuthCookie(t require.TestingT, user models.User) *http.Cookie {

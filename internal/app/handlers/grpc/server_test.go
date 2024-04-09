@@ -58,14 +58,22 @@ func (m *userAuthenticatorMock) AuthOrRegister(ctx context.Context, jwtStr strin
 	return args.Get(0).(models.User), args.String(1), args.Error(2)
 }
 
+func (m *userAuthenticatorMock) Auth(jwtStr string) (models.User, error) {
+	args := m.Called(jwtStr)
+	return args.Get(0).(models.User), args.Error(1)
+}
+
 func TestCreateURL(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mocks.NewMockStorage(ctrl)
-	store.EXPECT().CreateUser(gomock.Any()).AnyTimes().Return(models.User{ID: 1}, nil)
 	urlCreateService := new(urlCreateServiceMock)
 	userAuthenticator := new(userAuthenticatorMock)
+	user := models.User{ID: 1}
 	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
-		models.User{ID: 1}, "123", nil,
+		user, "123", nil,
+	)
+	userAuthenticator.On("Auth", mock.Anything).Return(
+		user, nil,
 	)
 	urlDeleter := new(batchURLDeleterMock)
 	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
@@ -309,8 +317,12 @@ func TestGetUserURLS(t *testing.T) {
 	urlCreateService := new(urlCreateServiceMock)
 	urlDeleter := new(batchURLDeleterMock)
 	userAuthenticator := new(userAuthenticatorMock)
+	user := models.User{ID: 1}
 	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
-		models.User{ID: 1}, "123", nil,
+		user, "123", nil,
+	)
+	userAuthenticator.On("Auth", mock.Anything).Return(
+		user, nil,
 	)
 	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
 	defer srvCloser()
@@ -381,8 +393,12 @@ func TestDeleteUserURLs(t *testing.T) {
 	store := mocks.NewMockStorage(ctrl)
 	urlCreateService := new(urlCreateServiceMock)
 	userAuthenticator := new(userAuthenticatorMock)
+	user := models.User{ID: 1}
 	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
-		models.User{ID: 1}, "123", nil,
+		user, "123", nil,
+	)
+	userAuthenticator.On("Auth", mock.Anything).Return(
+		user, nil,
 	)
 	urlDeleter := new(batchURLDeleterMock)
 	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
@@ -441,7 +457,9 @@ func startServer(
 		log.Fatal(err)
 	}
 
-	srv := grpc.NewServer(grpc.UnaryInterceptor(pb.AuthenticateInterceptor))
+	srv := grpc.NewServer(
+		grpc.UnaryInterceptor(pb.AuthenticateInterceptor(userAuthenticator)),
+	)
 	pb.RegisterURLServiceServer(srv, pb.NewURLsServer(
 		config,
 		store,

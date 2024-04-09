@@ -2,12 +2,12 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strconv"
 
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
+	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -31,39 +31,38 @@ var ingoreIPCheckMethods = []string{
 }
 
 // AuthenticateInterceptor
-func AuthenticateInterceptor(
-	ctx context.Context,
-	req interface{},
-	info *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler) (interface{}, error) {
+func AuthenticateInterceptor(userAuthenticator services.UserAuthService) func(
+	context.Context,
+	interface{},
+	*grpc.UnaryServerInfo,
+	grpc.UnaryHandler) (interface{}, error) {
 
-	method, _ := grpc.Method(ctx)
-	for _, imethod := range ingnoreAuthMethods {
-		if method == imethod {
-			return handler(ctx, req)
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		method, _ := grpc.Method(ctx)
+		for _, imethod := range ingnoreAuthMethods {
+			if method == imethod {
+				return handler(ctx, req)
+			}
 		}
-	}
 
-	meta, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "missing token")
-	}
-	values := meta.Get("jwt")
-	if len(values) == 0 {
-		return nil, status.Error(codes.Unauthenticated, "missing token")
-	}
+		meta, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return nil, status.Error(codes.Unauthenticated, "missing token")
+		}
+		values := meta.Get("jwt")
+		if len(values) == 0 {
+			return nil, status.Error(codes.Unauthenticated, "missing token")
+		}
 
-	claims := &auth.Claims{}
-	token, err := jwt.ParseWithClaims(values[0], claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(auth.SecretKey), nil
-	})
-	if err != nil || !token.Valid {
-		return nil, status.Error(codes.Unauthenticated, "invalid jwt")
-	}
-	meta.Append("user_id", strconv.Itoa(claims.UserID))
-	ctx = metadata.NewIncomingContext(ctx, meta)
+		user, err := userAuthenticator.Auth(values[0])
+		if errors.Is(err, services.ErrInvalidJWT) {
+			return nil, status.Error(codes.Unauthenticated, "invalid jwt")
+		}
+		meta.Append("user_id", strconv.Itoa(user.ID))
+		ctx = metadata.NewIncomingContext(ctx, meta)
 
-	return handler(ctx, req)
+		return handler(ctx, req)
+	}
 }
 
 // TrustedIPInterceptor
