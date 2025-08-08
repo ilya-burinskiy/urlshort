@@ -39,7 +39,7 @@ func (h Handlers) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 // Create shorened URL
 func (h Handlers) CreateURL(
 	shortener services.URLShortener,
-	userAuthenticator services.UserAuthService) func(http.ResponseWriter, *http.Request) {
+	userAuthenticator services.UserAuthenticator) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		jwtStr := getJWT(r)
@@ -81,7 +81,7 @@ func (h Handlers) CreateURL(
 // Create shortened URL from JSON
 func (h Handlers) CreateURLFromJSON(
 	shortener services.URLShortener,
-	userAuthenticator services.UserAuthService) func(http.ResponseWriter, *http.Request) {
+	userAuthenticator services.UserAuthenticator) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -135,7 +135,7 @@ func (h Handlers) CreateURLFromJSON(
 // Create multiple shortened URLs
 func (h Handlers) BatchCreateURL(
 	shortener services.URLShortener,
-	userAuthenticator services.UserAuthService) func(http.ResponseWriter, *http.Request) {
+	userAuthenticator services.UserAuthenticator) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -8,22 +8,26 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/ilya-burinskiy/urlshort/internal/app/auth"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
-	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
 var ErrInvalidJWT = errors.New("invalid JWT")
 
-type UserAuthService interface {
+type UserAuthenticator interface {
 	AuthOrRegister(context.Context, string) (models.User, string, error)
 	Auth(string) (models.User, error)
 }
 
-func NewUserAuthService(store storage.Storage) UserAuthService {
-	return authUserService{store: store}
+
+type UserCreator interface {
+	CreateUser(ctx context.Context) (models.User, error)
 }
 
 type authUserService struct {
-	store storage.Storage
+	usrCreator UserCreator
+}
+
+func NewUserAuthenticator(usrCreator UserCreator) UserAuthenticator {
+	return authUserService{usrCreator: usrCreator}
 }
 
 func (a authUserService) AuthOrRegister(ctx context.Context, jwtStr string) (models.User, string, error) {
@@ -33,7 +37,7 @@ func (a authUserService) AuthOrRegister(ctx context.Context, jwtStr string) (mod
 	})
 	var user models.User
 	if err != nil || !token.Valid {
-		newUser, err := a.store.CreateUser(ctx)
+		newUser, err := a.usrCreator.CreateUser(ctx)
 		if err != nil {
 			return user, "", fmt.Errorf("failed to authenticate guest: %w", err)
 		}

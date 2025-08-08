@@ -43,7 +43,7 @@ func main() {
 		services.RandHexStrGenerator{},
 		store,
 	)
-	userAuthenticator := services.NewUserAuthService(store)
+	userAuthenticator := services.NewUserAuthenticator(store)
 	urlDeleter := services.NewBatchDeleter(store)
 	ipChecker := services.NewIPChecker(config)
 	go urlDeleter.Run()
@@ -54,7 +54,7 @@ func main() {
 func startHTTPServer(
 	config configs.Config,
 	store storage.Storage,
-	userAuthenticator services.UserAuthService,
+	userAuthenticator services.UserAuthenticator,
 	ipChecker services.IPChecker,
 	shortener services.URLShortener,
 	urlDeleter services.BatchDeleter) {
@@ -87,7 +87,7 @@ func startHTTPServer(
 func startGRPCServer(
 	config configs.Config,
 	store storage.Storage,
-	userAuthenticator services.UserAuthService,
+	userAuthenticator services.UserAuthenticator,
 	ipChecker services.IPChecker,
 	shortener services.URLShortener,
 	urlDeleter services.BatchDeleter) {
@@ -131,7 +131,7 @@ func onExit(exit <-chan os.Signal, server *http.Server, s storage.Storage) {
 func configureRouter(
 	store storage.Storage,
 	config configs.Config,
-	userAuthenticator services.UserAuthService,
+	userAuthenticator services.UserAuthenticator,
 	ipChecker services.IPChecker,
 	shortener services.URLShortener,
 	urlDeleter services.BatchDeleter) chi.Router {

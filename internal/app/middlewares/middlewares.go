@@ -85,7 +85,7 @@ func RequestLogger(h http.Handler) http.Handler {
 }
 
 // Authentication middleware
-func Authenticate(userAuthenticator services.UserAuthService) func(http.Handler) http.Handler {
+func Authenticate(userAuthenticator services.UserAuthenticator) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			encoder := json.NewEncoder(w)

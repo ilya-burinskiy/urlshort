@@ -30,7 +30,7 @@ var ingoreIPCheckMethods = []string{
 }
 
 // AuthenticateInterceptor
-func AuthenticateInterceptor(userAuthenticator services.UserAuthService) func(
+func AuthenticateInterceptor(userAuthenticator services.UserAuthenticator) func(
 	context.Context,
 	interface{},
 	*grpc.UnaryServerInfo,

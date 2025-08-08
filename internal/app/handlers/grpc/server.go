@@ -23,7 +23,7 @@ type URLsServer struct {
 	UnimplementedURLServiceServer
 	config            configs.Config
 	store             storage.Storage
-	userAuthenticator services.UserAuthService
+	userAuthenticator services.UserAuthenticator
 	shortener  services.URLShortener
 	urlDeleter        services.BatchDeleter
 }
@@ -32,7 +32,7 @@ type URLsServer struct {
 func NewURLsServer(
 	config configs.Config,
 	store storage.Storage,
-	userAuthenticator services.UserAuthService,
+	userAuthenticator services.UserAuthenticator,
 	shortener services.URLShortener,
 	urlDeleter services.BatchDeleter) URLsServer {
 

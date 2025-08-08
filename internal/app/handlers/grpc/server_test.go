@@ -448,7 +448,7 @@ func TestDeleteUserURLs(t *testing.T) {
 func startServer(
 	config configs.Config,
 	store storage.Storage,
-	userAuthenticator services.UserAuthService,
+	userAuthenticator services.UserAuthenticator,
 	urlCreateService services.URLShortener,
 	urlDeleter services.BatchDeleter) func() {
 
