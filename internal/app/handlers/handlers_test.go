@@ -19,9 +19,9 @@ type want struct {
 	code        int
 }
 
-type mockRandHexStringGenerator struct{ mock.Mock }
+type randHexStrGeneratorMock struct{ mock.Mock }
 
-func (m *mockRandHexStringGenerator) Call(n int) (string, error) {
+func (m *randHexStrGeneratorMock) Gen(n int) (string, error) {
 	args := m.Called(n)
 	return args.String(0), args.Error(1)
 }

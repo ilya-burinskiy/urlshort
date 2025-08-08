@@ -37,7 +37,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 		AnyTimes().
 		Return(nil)
 
-	generatorMock := new(mockRandHexStringGenerator)
+	generatorMock := new(randHexStrGeneratorMock)
 	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	handler := handlers.NewHandlers(defaultConfig, storageMock)
@@ -160,7 +160,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			genCall := generatorMock.On("Call", mock.Anything).Return(
+			genCall := generatorMock.On("Gen", mock.Anything).Return(
 				tc.generatorCallResult.returnValue,
 				tc.generatorCallResult.error,
 			)

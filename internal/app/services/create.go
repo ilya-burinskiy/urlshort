@@ -9,9 +9,10 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
-// Interface for random hex strings generation
-type RandHexStringGenerator interface {
-	Call(n int) (string, error)
+
+// Interface for a hex string generation
+type HexStrGen interface {
+	Gen(n int) (string, error)
 }
 
 // Interface for creating shortened URLs
@@ -21,16 +22,16 @@ type CreateURLService interface {
 }
 
 type createURLService struct {
-	randGen RandHexStringGenerator
+	strGen  HexStrGen 
 	store   storage.Storage
 	pathLen int
 }
 
 // NewCreateURLService
-func NewCreateURLService(pathLen int, randGen RandHexStringGenerator, store storage.Storage) CreateURLService {
+func NewCreateURLService(pathLen int, strGen HexStrGen, store storage.Storage) CreateURLService {
 	return createURLService{
 		pathLen: pathLen,
-		randGen: randGen,
+		strGen: strGen,
 		store:   store,
 	}
 }
@@ -41,7 +42,7 @@ func (service createURLService) Create(originalURL string, user models.User) (mo
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			var shortenedPath string
-			shortenedPath, err = service.randGen.Call(service.pathLen)
+			shortenedPath, err = service.strGen.Gen(service.pathLen)
 			if err != nil {
 				return models.Record{}, fmt.Errorf("failed to generate shortened path: %s", err.Error())
 			}
@@ -64,7 +65,7 @@ func (service createURLService) Create(originalURL string, user models.User) (mo
 // BatchCreate
 func (service createURLService) BatchCreate(records []models.Record, user models.User) ([]models.Record, error) {
 	for i := range records {
-		shortenedPath, err := service.randGen.Call(service.pathLen)
+		shortenedPath, err := service.strGen.Gen(service.pathLen)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate shortened path for \"%s\": %s",
 				records[i].OriginalURL, err.Error())

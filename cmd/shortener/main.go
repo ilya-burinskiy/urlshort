@@ -40,7 +40,7 @@ func main() {
 	store := configureStorage(config)
 	urlCreateService := services.NewCreateURLService(
 		8,
-		services.StdRandHexStringGenerator{},
+		services.RandHexStrGenerator{},
 		store,
 	)
 	userAuthenticator := services.NewUserAuthService(store)

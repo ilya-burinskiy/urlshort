@@ -31,7 +31,7 @@ func BenchmarkCreateShortenedURLHandler(b *testing.B) {
 		AnyTimes().
 		Return(nil)
 
-	urlCreateService := services.NewCreateURLService(8, services.StdRandHexStringGenerator{}, storageMock)
+	urlCreateService := services.NewCreateURLService(8, services.RandHexStrGenerator{}, storageMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	userAuthenticator.On("Call", mock.Anything, mock.Anything).Return(models.User{ID: 1}, "123", nil)
 	handler := http.HandlerFunc(
@@ -64,7 +64,7 @@ func BenchmarkCreateURLFromJSON(b *testing.B) {
 
 	userAuthenticator := new(userAuthenticatorMock)
 	userAuthenticator.On("Call", mock.Anything, mock.Anything).Return(models.User{ID: 1}, "123", nil)
-	urlCreateService := services.NewCreateURLService(8, services.StdRandHexStringGenerator{}, storageMock)
+	urlCreateService := services.NewCreateURLService(8, services.RandHexStrGenerator{}, storageMock)
 	handler := http.HandlerFunc(
 		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(urlCreateService, userAuthenticator),
 	)
