@@ -38,7 +38,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 		Return(nil)
 
 	generatorMock := new(randHexStrGeneratorMock)
-	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
+	shortener := services.NewURLShortener(8, generatorMock, storageMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
@@ -49,7 +49,7 @@ func TestCreateShortenedURLFromJSONHandler(t *testing.T) {
 		middleware.AllowContentEncoding("gzip"),
 		middleware.AllowContentType("application/json", "application/x-gzip"),
 	)
-	router.Post("/api/shorten", handler.CreateURLFromJSON(urlCreateService, userAuthenticator))
+	router.Post("/api/shorten", handler.CreateURLFromJSON(shortener, userAuthenticator))
 	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 

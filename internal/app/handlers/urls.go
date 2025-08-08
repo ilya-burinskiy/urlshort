@@ -38,7 +38,7 @@ func (h Handlers) GetOriginalURL(w http.ResponseWriter, r *http.Request) {
 
 // Create shorened URL
 func (h Handlers) CreateURL(
-	urlCreateService services.CreateURLService,
+	shortener services.URLShortener,
 	userAuthenticator services.UserAuthService) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +57,7 @@ func (h Handlers) CreateURL(
 		}
 		originalURL := string(bytes)
 
-		record, err := urlCreateService.Create(originalURL, user)
+		record, err := shortener.Shortify(originalURL, user)
 		if err != nil {
 			var notUniqErr *storage.ErrNotUnique
 			if errors.As(err, &notUniqErr) {
@@ -80,7 +80,7 @@ func (h Handlers) CreateURL(
 
 // Create shortened URL from JSON
 func (h Handlers) CreateURLFromJSON(
-	urlCreateService services.CreateURLService,
+	shortener services.URLShortener,
 	userAuthenticator services.UserAuthService) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +104,7 @@ func (h Handlers) CreateURLFromJSON(
 		setJWTCookie(w, jwtStr)
 
 		originalURL := requestBody["url"]
-		record, err := urlCreateService.Create(originalURL, user)
+		record, err := shortener.Shortify(originalURL, user)
 		if err != nil {
 			var notUniqErr *storage.ErrNotUnique
 			if errors.As(err, &notUniqErr) {
@@ -134,7 +134,7 @@ func (h Handlers) CreateURLFromJSON(
 
 // Create multiple shortened URLs
 func (h Handlers) BatchCreateURL(
-	urlCreateService services.CreateURLService,
+	shortener services.URLShortener,
 	userAuthenticator services.UserAuthService) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +158,7 @@ func (h Handlers) BatchCreateURL(
 		}
 		setJWTCookie(w, jwtStr)
 
-		savedRecords, err := urlCreateService.BatchCreate(records, user)
+		savedRecords, err := shortener.BatchShortify(records, user)
 		if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			if err = encoder.Encode(err.Error()); err != nil {

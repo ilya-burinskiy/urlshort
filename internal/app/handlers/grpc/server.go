@@ -24,7 +24,7 @@ type URLsServer struct {
 	config            configs.Config
 	store             storage.Storage
 	userAuthenticator services.UserAuthService
-	urlCreateService  services.CreateURLService
+	shortener  services.URLShortener
 	urlDeleter        services.BatchDeleter
 }
 
@@ -33,14 +33,14 @@ func NewURLsServer(
 	config configs.Config,
 	store storage.Storage,
 	userAuthenticator services.UserAuthService,
-	urlCreateService services.CreateURLService,
+	shortener services.URLShortener,
 	urlDeleter services.BatchDeleter) URLsServer {
 
 	return URLsServer{
 		config:            config,
 		store:             store,
 		userAuthenticator: userAuthenticator,
-		urlCreateService:  urlCreateService,
+		shortener:  shortener,
 		urlDeleter:        urlDeleter,
 	}
 }
@@ -56,7 +56,7 @@ func (s URLsServer) CreateURL(ctx context.Context, in *CreateURLRequest) (*Creat
 		return nil, status.Error(codes.Internal, "failed to set JWT")
 	}
 
-	record, err := s.urlCreateService.Create(in.OriginalUrl, user)
+	record, err := s.shortener.Shortify(in.OriginalUrl, user)
 	if err != nil {
 		var notUniqErr *storage.ErrNotUnique
 		if errors.As(err, &notUniqErr) {
@@ -96,7 +96,7 @@ func (s URLsServer) BatchCreateURL(ctx context.Context, in *BatchCreateURLReques
 	for i, item := range in.Items {
 		records[i] = models.Record{OriginalURL: item.OriginalUrl, CorrelationID: item.CorrelationId}
 	}
-	savedRecords, err := s.urlCreateService.BatchCreate(records, user)
+	savedRecords, err := s.shortener.BatchShortify(records, user)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

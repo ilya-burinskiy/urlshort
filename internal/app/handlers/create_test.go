@@ -38,7 +38,7 @@ func TestCreateShortenedURLHandler(t *testing.T) {
 		Return(nil)
 
 	generatorMock := new(randHexStrGeneratorMock)
-	urlCreateService := services.NewCreateURLService(8, generatorMock, storageMock)
+	urlCreateService := services.NewURLShortener(8, generatorMock, storageMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()

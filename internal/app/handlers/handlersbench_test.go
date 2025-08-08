@@ -31,11 +31,11 @@ func BenchmarkCreateShortenedURLHandler(b *testing.B) {
 		AnyTimes().
 		Return(nil)
 
-	urlCreateService := services.NewCreateURLService(8, services.RandHexStrGenerator{}, storageMock)
+	shortener := services.NewURLShortener(8, services.RandHexStrGenerator{}, storageMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	userAuthenticator.On("Call", mock.Anything, mock.Anything).Return(models.User{ID: 1}, "123", nil)
 	handler := http.HandlerFunc(
-		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(urlCreateService, userAuthenticator),
+		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(shortener, userAuthenticator),
 	)
 
 	authCookie := generateAuthCookie(b, models.User{ID: 1})
@@ -64,9 +64,9 @@ func BenchmarkCreateURLFromJSON(b *testing.B) {
 
 	userAuthenticator := new(userAuthenticatorMock)
 	userAuthenticator.On("Call", mock.Anything, mock.Anything).Return(models.User{ID: 1}, "123", nil)
-	urlCreateService := services.NewCreateURLService(8, services.RandHexStrGenerator{}, storageMock)
+	shortener := services.NewURLShortener(8, services.RandHexStrGenerator{}, storageMock)
 	handler := http.HandlerFunc(
-		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(urlCreateService, userAuthenticator),
+		handlers.NewHandlers(defaultConfig, storageMock).CreateURL(shortener, userAuthenticator),
 	)
 
 	authCookie := generateAuthCookie(b, models.User{ID: 1})
@@ -106,11 +106,11 @@ func BenchmarkGetOriginalURLHandler(b *testing.B) {
 func BenchmarkBatchCreateURL(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	storageMock := mocks.NewMockStorage(ctrl)
-	urlCreateService := new(urlCreaterMock)
+	shortener := new(urlShortenerMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	userAuthenticator.On("Call", mock.Anything, mock.Anything).Return(models.User{ID: 1}, "123", nil)
 	handler := http.HandlerFunc(
-		handlers.NewHandlers(defaultConfig, storageMock).BatchCreateURL(urlCreateService, userAuthenticator),
+		handlers.NewHandlers(defaultConfig, storageMock).BatchCreateURL(shortener, userAuthenticator),
 	)
 
 	n := 100
@@ -122,7 +122,7 @@ func BenchmarkBatchCreateURL(b *testing.B) {
 			CorrelationID: strconv.Itoa(i),
 		}
 	}
-	urlCreateService.On("BatchCreate", mock.Anything, mock.Anything).Return(records, nil)
+	shortener.On("BatchShortify", mock.Anything, mock.Anything).Return(records, nil)
 
 	reqBody := toJSON(b, records)
 	authCookie := generateAuthCookie(b, models.User{ID: 1})

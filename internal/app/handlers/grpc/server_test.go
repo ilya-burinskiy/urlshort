@@ -33,14 +33,14 @@ var defaultConfig = configs.Config{
 	FileStoragePath: "storage",
 }
 
-type urlCreateServiceMock struct{ mock.Mock }
+type urlShortenerMock struct{ mock.Mock }
 
-func (m *urlCreateServiceMock) Create(origURL string, user models.User) (models.Record, error) {
+func (m *urlShortenerMock) Shortify(origURL string, user models.User) (models.Record, error) {
 	args := m.Called(origURL, user)
 	return args.Get(0).(models.Record), args.Error(1)
 }
 
-func (m *urlCreateServiceMock) BatchCreate(records []models.Record, user models.User) ([]models.Record, error) {
+func (m *urlShortenerMock) BatchShortify(records []models.Record, user models.User) ([]models.Record, error) {
 	args := m.Called(records, user)
 	return args.Get(0).([]models.Record), args.Error(1)
 }
@@ -66,7 +66,7 @@ func (m *userAuthenticatorMock) Auth(jwtStr string) (models.User, error) {
 func TestCreateURL(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mocks.NewMockStorage(ctrl)
-	urlCreateService := new(urlCreateServiceMock)
+	urlCreateService := new(urlShortenerMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	user := models.User{ID: 1}
 	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
@@ -126,7 +126,7 @@ func TestCreateURL(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			mockCall := urlCreateService.On("Create", mock.Anything, mock.Anything).Return(
+			mockCall := urlCreateService.On("Shortify", mock.Anything, mock.Anything).Return(
 				tc.createRes.record, tc.createRes.err,
 			)
 			defer mockCall.Unset()
@@ -154,7 +154,7 @@ func TestGetOriginalURL(t *testing.T) {
 	store.EXPECT().FindByShortenedPath(gomock.Any(), gomock.Any()).Return(models.Record{OriginalURL: "http://example.com"}, nil)
 	store.EXPECT().FindByShortenedPath(gomock.Any(), gomock.Any()).Return(models.Record{}, storage.ErrNotFound)
 	store.EXPECT().FindByShortenedPath(gomock.Any(), gomock.Any()).Return(models.Record{IsDeleted: true}, nil)
-	urlCreateService := new(urlCreateServiceMock)
+	urlCreateService := new(urlShortenerMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
 		models.User{ID: 1}, "123", nil,
@@ -222,7 +222,7 @@ func TestBatchCreateURL(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mocks.NewMockStorage(ctrl)
 	store.EXPECT().CreateUser(gomock.Any()).AnyTimes().Return(models.User{ID: 1}, nil)
-	urlCreateService := new(urlCreateServiceMock)
+	urlCreateService := new(urlShortenerMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
 		models.User{ID: 1}, "123", nil,
@@ -289,7 +289,7 @@ func TestBatchCreateURL(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			mockCall := urlCreateService.On("BatchCreate", mock.Anything, mock.Anything).Return(
+			mockCall := urlCreateService.On("BatchShortify", mock.Anything, mock.Anything).Return(
 				tc.createRes.records, tc.createRes.err,
 			)
 			defer mockCall.Unset()
@@ -314,7 +314,7 @@ func TestBatchCreateURL(t *testing.T) {
 func TestGetUserURLS(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mocks.NewMockStorage(ctrl)
-	urlCreateService := new(urlCreateServiceMock)
+	urlCreateService := new(urlShortenerMock)
 	urlDeleter := new(batchURLDeleterMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	user := models.User{ID: 1}
@@ -391,7 +391,7 @@ func TestGetUserURLS(t *testing.T) {
 func TestDeleteUserURLs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mocks.NewMockStorage(ctrl)
-	urlCreateService := new(urlCreateServiceMock)
+	urlCreateService := new(urlShortenerMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	user := models.User{ID: 1}
 	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
@@ -449,7 +449,7 @@ func startServer(
 	config configs.Config,
 	store storage.Storage,
 	userAuthenticator services.UserAuthService,
-	urlCreateService services.CreateURLService,
+	urlCreateService services.URLShortener,
 	urlDeleter services.BatchDeleter) func() {
 
 	listen, err := net.Listen("tcp", ":3200")

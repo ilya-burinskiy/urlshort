@@ -38,7 +38,7 @@ func main() {
 	showBuildInfo()
 
 	store := configureStorage(config)
-	urlCreateService := services.NewCreateURLService(
+	urlCreateService := services.NewURLShortener(
 		8,
 		services.RandHexStrGenerator{},
 		store,
@@ -56,11 +56,11 @@ func startHTTPServer(
 	store storage.Storage,
 	userAuthenticator services.UserAuthService,
 	ipChecker services.IPChecker,
-	urlCreateService services.CreateURLService,
+	shortener services.URLShortener,
 	urlDeleter services.BatchDeleter) {
 
 	server := http.Server{
-		Handler: configureRouter(store, config, userAuthenticator, ipChecker, urlCreateService, urlDeleter),
+		Handler: configureRouter(store, config, userAuthenticator, ipChecker, shortener, urlDeleter),
 		Addr:    config.ServerAddress,
 	}
 	exit := make(chan os.Signal, 1)
@@ -89,7 +89,7 @@ func startGRPCServer(
 	store storage.Storage,
 	userAuthenticator services.UserAuthService,
 	ipChecker services.IPChecker,
-	urlCreateService services.CreateURLService,
+	shortener services.URLShortener,
 	urlDeleter services.BatchDeleter) {
 
 	listen, err := net.Listen("tcp", config.GRPCServerAddress)
@@ -104,7 +104,7 @@ func startGRPCServer(
 	)
 	pb.RegisterURLServiceServer(
 		srv,
-		pb.NewURLsServer(config, store, userAuthenticator, urlCreateService, urlDeleter),
+		pb.NewURLsServer(config, store, userAuthenticator, shortener, urlDeleter),
 	)
 	if err := srv.Serve(listen); err != nil {
 		panic(err)
@@ -133,7 +133,7 @@ func configureRouter(
 	config configs.Config,
 	userAuthenticator services.UserAuthService,
 	ipChecker services.IPChecker,
-	urlCreateService services.CreateURLService,
+	shortener services.URLShortener,
 	urlDeleter services.BatchDeleter) chi.Router {
 
 	router := chi.NewRouter()
@@ -146,14 +146,14 @@ func configureRouter(
 	)
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("text/plain", "application/x-gzip"))
-		router.Post("/", handlers.CreateURL(urlCreateService, userAuthenticator))
+		router.Post("/", handlers.CreateURL(shortener, userAuthenticator))
 		router.Get("/{id}", handlers.GetOriginalURL)
 		router.Get("/ping", handlers.PingDB)
 	})
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AllowContentType("application/json", "application/x-gzip"))
-		router.Post("/api/shorten", handlers.CreateURLFromJSON(urlCreateService, userAuthenticator))
-		router.Post("/api/shorten/batch", handlers.BatchCreateURL(urlCreateService, userAuthenticator))
+		router.Post("/api/shorten", handlers.CreateURLFromJSON(shortener, userAuthenticator))
+		router.Post("/api/shorten/batch", handlers.BatchCreateURL(shortener, userAuthenticator))
 		router.Group(func(router chi.Router) {
 			router.Use(middlewares.Authenticate(userAuthenticator))
 			router.Get("/api/user/urls", handlers.GetUserURLs)

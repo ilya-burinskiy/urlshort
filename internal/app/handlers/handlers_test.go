@@ -39,14 +39,14 @@ func toJSON(t require.TestingT, v interface{}) string {
 	return string(result)
 }
 
-type urlCreaterMock struct{ mock.Mock }
+type urlShortenerMock struct{ mock.Mock }
 
-func (m *urlCreaterMock) Create(originalURL string, user models.User) (models.Record, error) {
+func (m *urlShortenerMock) Shortify(originalURL string, user models.User) (models.Record, error) {
 	args := m.Called(originalURL, user)
 	return args.Get(0).(models.Record), args.Error(1)
 }
 
-func (m *urlCreaterMock) BatchCreate(records []models.Record, user models.User) ([]models.Record, error) {
+func (m *urlShortenerMock) BatchShortify(records []models.Record, user models.User) ([]models.Record, error) {
 	args := m.Called(records, user)
 	return args.Get(0).([]models.Record), args.Error(1)
 }

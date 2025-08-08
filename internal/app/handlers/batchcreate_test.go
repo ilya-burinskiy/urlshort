@@ -29,7 +29,7 @@ func TestBatchCreateURLTest(t *testing.T) {
 		CreateUser(gomock.Any()).
 		AnyTimes().
 		Return(user, nil)
-	createrMock := new(urlCreaterMock)
+	shortenerMock := new(urlShortenerMock)
 	userAuthenticator := new(userAuthenticatorMock)
 
 	router := chi.NewRouter()
@@ -41,7 +41,7 @@ func TestBatchCreateURLTest(t *testing.T) {
 		middleware.AllowContentEncoding("gzip"),
 		middleware.AllowContentType("application/json", "application/x-gzip"),
 	)
-	router.Post("/api/shorten/batch", handler.BatchCreateURL(createrMock, userAuthenticator))
+	router.Post("/api/shorten/batch", handler.BatchCreateURL(shortenerMock, userAuthenticator))
 	testServer := httptest.NewServer(router)
 	defer testServer.Close()
 
@@ -111,7 +111,7 @@ func TestBatchCreateURLTest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			createCall := createrMock.On("BatchCreate", mock.Anything, mock.Anything).
+			createCall := shortenerMock.On("BatchShortify", mock.Anything, mock.Anything).
 				Return(tc.batchCreateResult.returnValue, tc.batchCreateResult.err)
 			authCall := userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).
 				Return(tc.authOrRegisterRes.user, tc.authOrRegisterRes.jwtStr, tc.authOrRegisterRes.err)
