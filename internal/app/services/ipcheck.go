@@ -6,21 +6,17 @@ import (
 	"github.com/ilya-burinskiy/urlshort/internal/app/configs"
 )
 
-type IPChecker interface {
-	InTrustedSubnet(ip net.IP) bool
+type IPChecker struct {
+	config configs.Config
 }
 
 func NewIPChecker(config configs.Config) IPChecker {
-	return ipChecker{
+	return IPChecker{
 		config: config,
 	}
 }
 
-type ipChecker struct {
-	config configs.Config
-}
-
-func (c ipChecker) InTrustedSubnet(ip net.IP) bool {
+func (c IPChecker) InTrustedSubnet(ip net.IP) bool {
 	_, ipv4Net, err := net.ParseCIDR(c.config.TrustedSubnet)
 	if err != nil {
 		return false
