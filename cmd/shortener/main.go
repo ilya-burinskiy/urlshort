@@ -44,7 +44,7 @@ func main() {
 		store,
 	)
 	userAuthenticator := services.NewUserAuthenticator(store)
-	urlDeleter := services.NewBatchDeleter(store)
+	urlDeleter := services.NewDeferredDeleter(store)
 	ipChecker := services.NewIPChecker(config)
 	go urlDeleter.Run()
 	go startGRPCServer(config, store, userAuthenticator, ipChecker, urlCreateService, urlDeleter)
@@ -57,7 +57,7 @@ func startHTTPServer(
 	userAuthenticator services.UserAuthenticator,
 	ipChecker services.IPChecker,
 	shortener services.URLShortener,
-	urlDeleter services.BatchDeleter) {
+	urlDeleter services.DeferredDeleter) {
 
 	server := http.Server{
 		Handler: configureRouter(store, config, userAuthenticator, ipChecker, shortener, urlDeleter),
@@ -90,7 +90,7 @@ func startGRPCServer(
 	userAuthenticator services.UserAuthenticator,
 	ipChecker services.IPChecker,
 	shortener services.URLShortener,
-	urlDeleter services.BatchDeleter) {
+	urlDeleter services.DeferredDeleter) {
 
 	listen, err := net.Listen("tcp", config.GRPCServerAddress)
 	if err != nil {
@@ -134,7 +134,7 @@ func configureRouter(
 	userAuthenticator services.UserAuthenticator,
 	ipChecker services.IPChecker,
 	shortener services.URLShortener,
-	urlDeleter services.BatchDeleter) chi.Router {
+	urlDeleter services.DeferredDeleter) chi.Router {
 
 	router := chi.NewRouter()
 	handlers := handlers.NewHandlers(config, store)

@@ -8,32 +8,28 @@ import (
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/logger"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
-	"github.com/ilya-burinskiy/urlshort/internal/app/storage"
 )
 
 // BatchDeleter
 type BatchDeleter interface {
-	Delete(models.Record)
-	Run()
+	BatchDelete(ctx context.Context, records []models.Record) error
 }
 
-type batchDeleter struct {
-	store storage.Storage
-	ch    chan models.Record
+type DeferredDeleter struct {
+	batchDeleter BatchDeleter
+	ch chan models.Record
 }
 
-// NewBatchDeleter
-func NewBatchDeleter(store storage.Storage) BatchDeleter {
-	return &batchDeleter{store: store, ch: make(chan models.Record, 1024)}
+func NewDeferredDeleter(batchDeleter BatchDeleter) DeferredDeleter {
+	return DeferredDeleter{batchDeleter: batchDeleter, ch: make(chan models.Record, 1024)}
 }
 
-// Delete
-func (d *batchDeleter) Delete(record models.Record) {
+func (d DeferredDeleter) Enqueue(record models.Record) {
 	d.ch <- record
 }
 
 // Run
-func (d *batchDeleter) Run() {
+func (d DeferredDeleter) Run() {
 	ticker := time.NewTicker(5 * time.Second)
 	var records []models.Record
 
@@ -46,7 +42,7 @@ func (d *batchDeleter) Run() {
 				continue
 			}
 
-			err := d.store.BatchDelete(context.TODO(), records)
+			err := d.batchDeleter.BatchDelete(context.TODO(), records)
 			if err != nil {
 				logger.Log.Info("run batch delete error", zap.String("err", err.Error()))
 				continue

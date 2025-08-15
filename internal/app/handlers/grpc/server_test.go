@@ -45,12 +45,6 @@ func (m *urlShortenerMock) BatchShortify(records []models.Record, user models.Us
 	return args.Get(0).([]models.Record), args.Error(1)
 }
 
-type batchURLDeleterMock struct{ mock.Mock }
-
-func (b *batchURLDeleterMock) Delete(models.Record) {}
-
-func (b *batchURLDeleterMock) Run() {}
-
 type userAuthenticatorMock struct{ mock.Mock }
 
 func (m *userAuthenticatorMock) AuthOrRegister(ctx context.Context, jwtStr string) (models.User, string, error) {
@@ -75,7 +69,7 @@ func TestCreateURL(t *testing.T) {
 	userAuthenticator.On("Auth", mock.Anything).Return(
 		user, nil,
 	)
-	urlDeleter := new(batchURLDeleterMock)
+	urlDeleter := services.NewDeferredDeleter(store)
 	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
 	defer srvCloser()
 
@@ -159,7 +153,7 @@ func TestGetOriginalURL(t *testing.T) {
 	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
 		models.User{ID: 1}, "123", nil,
 	)
-	urlDeleter := new(batchURLDeleterMock)
+	urlDeleter := services.NewDeferredDeleter(store)
 	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
 	defer srvCloser()
 
@@ -227,7 +221,7 @@ func TestBatchCreateURL(t *testing.T) {
 	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
 		models.User{ID: 1}, "123", nil,
 	)
-	urlDeleter := new(batchURLDeleterMock)
+	urlDeleter := services.NewDeferredDeleter(store)
 	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
 	defer srvCloser()
 
@@ -315,7 +309,7 @@ func TestGetUserURLS(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mocks.NewMockStorage(ctrl)
 	urlCreateService := new(urlShortenerMock)
-	urlDeleter := new(batchURLDeleterMock)
+	urlDeleter := services.NewDeferredDeleter(store)
 	userAuthenticator := new(userAuthenticatorMock)
 	user := models.User{ID: 1}
 	userAuthenticator.On("AuthOrRegister", mock.Anything, mock.Anything).Return(
@@ -400,7 +394,7 @@ func TestDeleteUserURLs(t *testing.T) {
 	userAuthenticator.On("Auth", mock.Anything).Return(
 		user, nil,
 	)
-	urlDeleter := new(batchURLDeleterMock)
+	urlDeleter := services.NewDeferredDeleter(store)
 	srvCloser := startServer(defaultConfig, store, userAuthenticator, urlCreateService, urlDeleter)
 	defer srvCloser()
 
@@ -450,7 +444,7 @@ func startServer(
 	store storage.Storage,
 	userAuthenticator services.UserAuthenticator,
 	urlCreateService services.URLShortener,
-	urlDeleter services.BatchDeleter) func() {
+	urlDeleter services.DeferredDeleter) func() {
 
 	listen, err := net.Listen("tcp", ":3200")
 	if err != nil {

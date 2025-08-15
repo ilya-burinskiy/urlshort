@@ -15,20 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ilya-burinskiy/urlshort/internal/app/handlers"
+	"github.com/ilya-burinskiy/urlshort/internal/app/services"
 	"github.com/ilya-burinskiy/urlshort/internal/app/middlewares"
 	"github.com/ilya-burinskiy/urlshort/internal/app/models"
 	"github.com/ilya-burinskiy/urlshort/internal/app/storage/mocks"
 )
 
-type urlDeleterMock struct{ mock.Mock }
-
-func (m *urlDeleterMock) Delete(r models.Record) {}
-func (m *urlDeleterMock) Run()                   {}
-
 func TestDeleterUserURLsHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	storageMock := mocks.NewMockStorage(ctrl)
-	urlDeleterMock := new(urlDeleterMock)
+	urlDeleter := services.NewDeferredDeleter(storageMock)
 	userAuthenticator := new(userAuthenticatorMock)
 	handler := handlers.NewHandlers(defaultConfig, storageMock)
 	router := chi.NewRouter()
@@ -40,7 +36,7 @@ func TestDeleterUserURLsHandler(t *testing.T) {
 		middleware.AllowContentType("application/json", "application/x-gzip"),
 		middlewares.Authenticate(userAuthenticator),
 	)
-	router.Delete("/api/user/urls", handler.DeleteUserURLs(urlDeleterMock))
+	router.Delete("/api/user/urls", handler.DeleteUserURLs(urlDeleter))
 	testServer := httptest.NewServer(router)
 
 	user := models.User{ID: 1}

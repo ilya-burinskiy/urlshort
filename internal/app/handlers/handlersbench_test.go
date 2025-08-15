@@ -162,7 +162,7 @@ func BenchmarkGetUserURLs(b *testing.B) {
 func BenchmarkDeleteUserURLs(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	storageMock := mocks.NewMockStorage(ctrl)
-	urlDeleter := new(urlDeleterMock)
+	urlDeleter := services.NewDeferredDeleter(storageMock)
 	handler := http.HandlerFunc(
 		handlers.NewHandlers(defaultConfig, storageMock).DeleteUserURLs(urlDeleter),
 	)

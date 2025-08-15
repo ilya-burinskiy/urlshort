@@ -222,7 +222,7 @@ func (h Handlers) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete user shortened URLs
-func (h Handlers) DeleteUserURLs(urlDeleter services.BatchDeleter) func(http.ResponseWriter, *http.Request) {
+func (h Handlers) DeleteUserURLs(urlDeleter services.DeferredDeleter) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		encoder := json.NewEncoder(w)
@@ -237,7 +237,7 @@ func (h Handlers) DeleteUserURLs(urlDeleter services.BatchDeleter) func(http.Res
 
 		userID, _ := middlewares.UserIDFromContext(r.Context())
 		for _, shortPath := range shortPaths {
-			urlDeleter.Delete(models.Record{
+			urlDeleter.Enqueue(models.Record{
 				ShortenedPath: shortPath,
 				UserID:        userID,
 			})

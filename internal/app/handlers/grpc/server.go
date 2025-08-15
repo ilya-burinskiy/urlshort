@@ -25,7 +25,7 @@ type URLsServer struct {
 	store             storage.Storage
 	userAuthenticator services.UserAuthenticator
 	shortener  services.URLShortener
-	urlDeleter        services.BatchDeleter
+	urlDeleter        services.DeferredDeleter
 }
 
 // NewURLsServer
@@ -34,7 +34,7 @@ func NewURLsServer(
 	store storage.Storage,
 	userAuthenticator services.UserAuthenticator,
 	shortener services.URLShortener,
-	urlDeleter services.BatchDeleter) URLsServer {
+	urlDeleter services.DeferredDeleter) URLsServer {
 
 	return URLsServer{
 		config:            config,
@@ -137,7 +137,7 @@ func (s URLsServer) DeleteUserURLs(ctx context.Context, in *DeleteUserURLsReques
 	md, _ := metadata.FromIncomingContext(ctx)
 	userID, _ := strconv.Atoi(md.Get("user_id")[0])
 	for _, shortPath := range in.ShortUrls {
-		s.urlDeleter.Delete(models.Record{
+		s.urlDeleter.Enqueue(models.Record{
 			ShortenedPath: shortPath,
 			UserID:        userID,
 		})
